@@ -1,0 +1,10 @@
+{
+  "external_urls": {
+    "spotify": "https://open.spotify.com/artist/7tYKF4w9nC0nq9CsPZTHyP"
+  },
+  "href": "https://api.spotify.com/v1/artists/7tYKF4w9nC0nq9CsPZTHyP",
+  "id": "7tYKF4w9nC0nq9CsPZTHyP",
+  "name": "SZA",
+  "type": "artist",
+  "uri": "spotify:artist:7tYKF4w9nC0nq9CsPZTHyP"
+}
