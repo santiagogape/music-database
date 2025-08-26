@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import java.util.*?>
+<?import javafx.scene.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<TabPane xmlns="http://javafx.com/javafx/21"
+         xmlns:fx="http://javafx.com/fxml/1"
+         fx:controller="Main.MainController">
+
+    <!-- Pestaña Importar -->
+    <Tab text="Importar" closable="false">
+        <VBox spacing="16" style="-fx-padding: 16;">
+            <Label text="Importar"/>
+            <StackPane fx:id="dropZone"
+                       style="-fx-border-color: -fx-accent; -fx-border-width: 2; -fx-background-color: rgba(0,0,0,0.03); -fx-padding: 24;">
+                <Label text="Arrastra aquí archivos o carpetas (se guardan en SQLite)." wrapText="true"/>
+            </StackPane>
+        </VBox>
+    </Tab>
+
+    <!-- Pestaña Datos -->
+    <Tab text="Datos" closable="false">
+        <VBox spacing="8" style="-fx-padding: 16;">
+            <Label text="Datos (SQLite)"/>
+            <TableView fx:id="tableView" VBox.vgrow="ALWAYS">
+                <columns>
+                    <TableColumn fx:id="colId" text="ID"/>
+                    <TableColumn fx:id="colName" text="NAME"/>
+                    <TableColumn fx:id="colPath" text="PATH"/>
+                    <TableColumn fx:id="colType" text="TYPE"/>
+                </columns>
+            </TableView>
+            <Button text="Refrescar" onAction="#onRefresh"/>
+        </VBox>
+    </Tab>
+</TabPane>

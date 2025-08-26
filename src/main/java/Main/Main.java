@@ -2,17 +2,21 @@ package Main;
 
 import app.control.TokenManager;
 import app.model.utilities.ChronometerListener;
+import app.model.utilities.database.Database;
 import com.google.gson.Gson;
-import spotify.model.auth.AccessToken;
-import spotify.model.auth.ClientCredentials;
-import spotify.model.auth.TokenRequest;
-import spotify.model.items.full.SpotifyTrack;
-import spotify.model.items.simplified.SpotifySimplifiedAlbum;
-import spotify.model.items.simplified.SpotifySimplifiedObject;
+import dependencies.spotify.model.auth.ClientCredentials;
+import dependencies.spotify.model.auth.TokenRequest;
+import dependencies.spotify.model.items.full.SpotifyTrack;
+import dependencies.spotify.model.items.simplified.SpotifySimplifiedAlbum;
+import dependencies.spotify.model.items.simplified.SpotifySimplifiedObject;
 
 import java.io.*;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Objects;
 
 public class Main {
@@ -30,7 +34,7 @@ public class Main {
         System.out.println(track);
 
 
-        TokenManager tokenManager = new spotify.control.TokenManager(HttpClient.newHttpClient(), new TokenRequest(credentials));
+        TokenManager tokenManager = new dependencies.spotify.control.TokenManager(HttpClient.newHttpClient(), new TokenRequest(credentials));
 
         /*
         AccessToken token = tokenManager.requestToken();
@@ -66,4 +70,51 @@ public class Main {
     }
 
     private static void refreshToken(){}
+
+    private static Database database(){
+        return new Database() {
+            String url = "jdbc:sqlite:C:\\Users\\santi\\Desktop\\music.db";
+
+            @Override
+            public String url() {
+                return url;
+            }
+
+            @Override
+            public void url(String url) {
+                this.url = url;
+            }
+
+            Connection connection;
+            @Override
+            public void open() {
+                try {
+                    connection = DriverManager.getConnection(url);
+                    try (Statement st = connection.createStatement()) {
+                        st.execute("PRAGMA foreign_keys = ON;");
+                    }
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+
+            @Override
+            public void commit() {
+                try {
+                    connection.commit();
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+
+            @Override
+            public void close() {
+                try {
+                    connection.close();
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        };
+    }
 }
