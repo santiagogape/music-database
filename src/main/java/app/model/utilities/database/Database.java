@@ -11,6 +11,13 @@ public interface Database {
     String url();
     void url(String url);
 
+    void createTable(String definition);
+    void deleteTable(String name);
+    List<String> tables();
+    void initialize();
+
+
+
     interface Table<T> {
         boolean insert(T item);
         boolean delete(Integer id);
@@ -73,25 +80,6 @@ public interface Database {
                     FOREIGN KEY (GENRE) REFERENCES GENRES(GENRE)
                 );
                 """),
-        TRACKS("""
-                CREATE TABLE IF NOT EXISTS TRACKS (
-                    ID INTEGER PRIMARY KEY,
-                    TITLE TEXT NOT NULL,
-                    ALBUM INTEGER NOT NULL,
-                    NUMBER INT NOT NULL,
-                    FOREIGN KEY (ID) REFERENCES OBJECTS(ID)
-                    FOREIGN KEY (ID) REFERENCES ALBUMS(ID)
-                );
-                """),
-        TRACK_ARTISTS("""
-                CREATE TABLE IF NOT EXISTS TRACK_ARTISTS (
-                TRACK INTEGER NOT NULL,
-                ARTIST INTEGER NOT NULL,
-                PRIMARY KEY (TRACK, ARTIST),
-                FOREIGN KEY (TRACK) REFERENCES TRACKS(ID),
-                FOREIGN KEY (ARTIST) REFERENCES ARTISTS(ID)
-                );
-        """),
         ALBUMS("""
                 CREATE TABLE IF NOT EXISTS ALBUMS (
                     ID INTEGER PRIMARY KEY,
@@ -103,6 +91,31 @@ public interface Database {
                     FOREIGN KEY (ID) REFERENCES OBJECTS(ID)
                 );
                 """),
+        TRACKS("""
+                CREATE TABLE IF NOT EXISTS TRACKS (
+                    ID INTEGER PRIMARY KEY,
+                    TITLE TEXT NOT NULL,
+                    ALBUM INTEGER NOT NULL,
+                    NUMBER INT NOT NULL,
+                    FOREIGN KEY (ID) REFERENCES OBJECTS(ID)
+                    FOREIGN KEY (ID) REFERENCES ALBUMS(ID)
+                );
+                """),
+        ARTISTS("""
+                CREATE TABLE IF NOT EXISTS ARTISTS (
+                ID INTEGER PRIMARY KEY,
+                FOREIGN KEY (ID) REFERENCES OBJECTS(ID)
+                );
+                """),
+        TRACK_ARTISTS("""
+                CREATE TABLE IF NOT EXISTS TRACK_ARTISTS (
+                TRACK INTEGER NOT NULL,
+                ARTIST INTEGER NOT NULL,
+                PRIMARY KEY (TRACK, ARTIST),
+                FOREIGN KEY (TRACK) REFERENCES TRACKS(ID),
+                FOREIGN KEY (ARTIST) REFERENCES ARTISTS(ID)
+                );
+        """),
         ALBUM_ARTISTS("""
                 CREATE TABLE IF NOT EXISTS ALBUM_ARTISTS (
                     ALBUM INTEGER NOT NULL,
@@ -111,16 +124,18 @@ public interface Database {
                     FOREIGN KEY (ALBUM) REFERENCES ALBUMS(ID),
                     FOREIGN KEY (ARTIST) REFERENCES ARTISTS(ID)
                 );
-                """),
-        ARTISTS("""
-                CREATE TABLE IF NOT EXISTS ARTISTS (
-                ID INTEGER PRIMARY KEY,
-                FOREIGN KEY (ID) REFERENCES OBJECTS(ID)
-                );
                 """);
 
 
-        Tables(String definition){};
+        private final String definition;
+
+        Tables(String definition){
+            this.definition = definition;
+        }
+
+        public String definition() {
+            return definition;
+        }
     }
 
 }

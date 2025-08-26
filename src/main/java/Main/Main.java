@@ -13,10 +13,9 @@ import dependencies.spotify.model.items.simplified.SpotifySimplifiedObject;
 import java.io.*;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 public class Main {
@@ -74,6 +73,22 @@ public class Main {
     private static Database database(){
         return new Database() {
             String url = "jdbc:sqlite:C:\\Users\\santi\\Desktop\\music.db";
+            Connection connection;
+
+            private void execute(String sql){
+                try (Statement st = connection.createStatement()) {
+                    st.execute(sql);
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            @Override
+            public void initialize() {
+                for (Tables t: Tables.values()){
+                    execute(t.definition());
+                }
+            }
 
             @Override
             public String url() {
@@ -85,7 +100,36 @@ public class Main {
                 this.url = url;
             }
 
-            Connection connection;
+            @Override
+            public void createTable(String definition) {
+                execute(definition);
+            }
+
+            @Override
+            public void deleteTable(String name) {
+                execute("DROP TABLE IF EXISTS " + name + ";");
+            }
+
+            @Override
+            public List<String> tables() {
+                List<String> tables = new ArrayList<>();
+                String sql = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;";
+
+                try (PreparedStatement stmt = connection.prepareStatement(sql);
+                     ResultSet rs = stmt.executeQuery()) {
+
+                    while (rs.next()) {
+                        tables.add(rs.getString("name"));
+                    }
+
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+
+                return tables;
+            }
+
+
             @Override
             public void open() {
                 try {
