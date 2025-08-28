@@ -1,5 +1,10 @@
 package Main;
 
+import app.control.TokenManager;
+import app.model.utilities.database.Database;
+import com.google.gson.Gson;
+import dependencies.spotify.model.auth.ClientCredentials;
+import dependencies.spotify.model.auth.TokenRequest;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -13,18 +18,134 @@ import javafx.scene.input.TransferMode;
 import javafx.scene.layout.StackPane;
 
 import java.io.File;
+import java.io.InputStreamReader;
+import java.net.http.HttpClient;
+import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class MainController {
 
-    // --- Modelo simple ---
-        public record ObjectRecord(int id, String path, String name, String type) {
+    // --- statics ---
+    static final Gson gson = new Gson();
+    static final ClientCredentials credentials =
+            gson.fromJson(getInputStreamReader("/client-credentials.json"), ClientCredentials.class);
+    static final TokenManager tokenManager =
+            new dependencies.spotify.control.TokenManager(HttpClient.newHttpClient(), new TokenRequest(credentials));
+    static final Database database = database();
+
+
+    private static Database database(){
+        return new Database() {
+            String folder = "C:\\Users\\santi\\Desktop\\musica";
+            String name = "music.db";
+            Connection connection;
+
+            private void execute(String sql){
+                try (Statement st = connection.createStatement()) {
+                    st.execute(sql);
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            @Override
+            public void initialize() {
+                for (Tables t: Tables.values()){
+                    System.out.println("executing: " + t.definition());
+                    execute(t.definition());
+                }
+            }
+
+            @Override
+            public String url() {
+                return folder + "\\" + name;
+            }
+
+            @Override
+            public String folder() {
+                return folder;
+            }
+
+            @Override
+            public String name() {
+                return name;
+            }
+
+            @Override
+            public void createTable(String definition) {
+                execute(definition);
+            }
+
+            @Override
+            public void deleteTable(String name) {
+                execute("DROP TABLE IF EXISTS " + name + ";");
+            }
+
+            @Override
+            public List<String> tables() {
+                List<String> tables = new ArrayList<>();
+                String sql = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;";
+
+                try (PreparedStatement stmt = connection.prepareStatement(sql);
+                     ResultSet rs = stmt.executeQuery()) {
+
+                    while (rs.next()) {
+                        tables.add(rs.getString("name"));
+                    }
+
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+
+                return tables;
+            }
+
+
+            @Override
+            public void open() {
+                try {
+                    connection = DriverManager.getConnection(this.url());
+                    try (Statement st = connection.createStatement()) {
+                        st.execute("PRAGMA foreign_keys = ON;");
+                    }
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+
+            @Override
+            public void commit() {
+                try {
+                    connection.commit();
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+
+            @Override
+            public void close() {
+                try {
+                    connection.close();
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        };
+    }
+
+    private static InputStreamReader getInputStreamReader(String path) {
+        return new InputStreamReader(
+                Objects.requireNonNull(
+                        Main.class.getResourceAsStream(path)
+                ),
+                StandardCharsets.UTF_8);
     }
 
     // --- SQLite ---
-    static class Database {
+    static class Data {
         private static final String DB_URL = "jdbc:sqlite:music.db";
 
         static Connection get() throws SQLException {
@@ -86,6 +207,7 @@ public class MainController {
         }
     }
 
+
     // --- Referencias desde FXML ---
     @FXML private StackPane dropZone;
     @FXML private TableView<ObjectRecord> tableView;
@@ -98,7 +220,9 @@ public class MainController {
 
     @FXML
     private void initialize() {
-        Database.init();
+        System.out.println("database initializing");
+        database.initialize();
+        System.out.println("database initialized");
 
         tableView.setItems(tableData);
         colId.setCellValueFactory(c -> new SimpleIntegerProperty(c.getValue().id()));
@@ -144,7 +268,7 @@ public class MainController {
     }
 
     private void refreshTable() {
-        tableData.setAll(Database.listAll());
+        tableData.setAll(Data.listAll());
     }
 
     private void importFileOrDir(File f) {
@@ -159,7 +283,7 @@ public class MainController {
             String path = f.getAbsolutePath();
             String name = f.getName();
             String type = "file";
-            Database.insertOrIgnore(path, name, type);
+            Data.insertOrIgnore(path, name, type);
         }
     }
 }

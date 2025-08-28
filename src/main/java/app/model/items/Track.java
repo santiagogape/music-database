@@ -4,8 +4,7 @@ import java.util.List;
 
 public interface Track extends SimpleItem {
     String title();
-    Album album();
+    Integer albumId();
     int number();
-    List<Artist> artists();
     List<String> genres();
 }

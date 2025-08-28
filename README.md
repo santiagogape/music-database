@@ -45,17 +45,25 @@ PROJECT APPS
 
 ## PROCESS
 
+### setup
+1. reed objects + images
+2. grouping by type -> reed artist, track album (simple object, no references)
+3. once all objects are made, remake objects to have simple + typed + references
+
+### adding
 1. view sets a window for the user to select the files to add to the database
-2. said files will be analysed to get either filename or title, album, artist
-3. obtained previous string, the app calls the spotify api for each
+2. said files will be analysed to get either filename or title, album, artist and form a string "request"
+3. the database will be updated with the file reference and its request
+4. obtained previous string, the app calls the spotify api for each
    1. if there's not an available token, one will be asked the api
    2. a token life span is that of 1h so 1min before it expires,
       a new one will be requested
-4. treated as a stream, the data obtain will be stored in a temporal table,
+5. treated as a stream, the data obtain will be stored in a temporal table "RESPONSES",
    given that the api response includes many versions, that might not be the actual song search initially
-5. the view will let you check the correct data, this won't be automatic,
+   each entry will reference the file whose request was used for the call.
+6. the view will let you check the correct data, this won't be automatic,
    since only the user knows the real song, it is possible to compare it 
    using the link to the track from spotify in this point
-6. once confirmed the selected data, the metadata from each file will be updated,
+7. once confirmed the selected data, the metadata from each file will be updated,
    and then, if it's needed, it will be moved to the correct location in the storage
-7. after the files are moved to their final location, the database will be updated.
+8. after the files are moved to their final location, the database will be updated.

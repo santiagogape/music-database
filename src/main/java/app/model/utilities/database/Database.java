@@ -1,7 +1,7 @@
 package app.model.utilities.database;
 
 import java.util.List;
-import java.util.stream.Stream;
+import java.util.Optional;
 
 public interface Database {
 
@@ -9,22 +9,22 @@ public interface Database {
     void close();
     void commit();
     String url();
-    void url(String url);
+    String folder();
+    String name();
 
     void createTable(String definition);
     void deleteTable(String name);
     List<String> tables();
     void initialize();
 
-
-
     interface Table<T> {
-        boolean insert(T item);
-        boolean delete(Integer id);
-        boolean update(Integer id, T item);
-        T get(Integer id);
+        T insert(T item);
+        void delete(Integer id);
+        T update(Integer id, T item);
+        Optional<T> get(Integer id);
         List<T> query(String sql);
-        Stream<T> all();
+        List<T> all();
+        List<T> allWithOffset(Integer offset);
     }
 
     enum Tables {
@@ -36,14 +36,16 @@ public interface Database {
                     TITLE TEXT,
                     ALBUM TEXT,
                     ARTISTS TEXT,
-                    REQUEST TEXT
+                    REQUEST TEXT NOT NULL,
+                    CREATION NOT NULL
                 );
                 """),
         RESPONSES("""
                 CREATE TABLE IF NOT EXISTS RESPONSES (
-                    ID INTEGER PRIMARY KEY
-                    FOREIGN KEY (ID) REFERENCES FILES(ID)
-                    PATH TEXT
+                    ID INTEGER PRIMARY KEY,
+                    PATH TEXT,
+                    NAME TEXT,
+                    FOREIGN KEY (ID) REFERENCES FILES(ID) ON DELETE CASCADE
                 );
                 """),
         OBJECTS("""
@@ -62,7 +64,7 @@ public interface Database {
                     PATH TEXT NOT NULL,
                     WIDTH INT NOT NULL,
                     HEIGHT INT NOT NULL,
-                    FOREIGN KEY (OBJECT) REFERENCES OBJECTS(ID),
+                    FOREIGN KEY (OBJECT) REFERENCES OBJECTS(ID) ON DELETE CASCADE,
                     PRIMARY KEY (OBJECT, NUMBER)
                 );
                 """),
@@ -76,8 +78,14 @@ public interface Database {
                     OBJECT INTEGER NOT NULL,
                     GENRE TEXT NOT NULL,
                     PRIMARY KEY (OBJECT, GENRE),
-                    FOREIGN KEY (OBJECT) REFERENCES OBJECTS(ID),
-                    FOREIGN KEY (GENRE) REFERENCES GENRES(GENRE)
+                    FOREIGN KEY (OBJECT) REFERENCES OBJECTS(ID) ON DELETE CASCADE,
+                    FOREIGN KEY (GENRE) REFERENCES GENRES(GENRE) ON DELETE CASCADE
+                );
+                """),
+        ARTISTS("""
+                CREATE TABLE IF NOT EXISTS ARTISTS (
+                ID INTEGER PRIMARY KEY,
+                FOREIGN KEY (ID) REFERENCES OBJECTS(ID) ON DELETE CASCADE
                 );
                 """),
         ALBUMS("""
@@ -88,7 +96,7 @@ public interface Database {
                     RELEASE TEXT NOT NULL,
                     RELEASE_PRECISION TEXT NOT NULL,
                     LABEL TEXT,
-                    FOREIGN KEY (ID) REFERENCES OBJECTS(ID)
+                    FOREIGN KEY (ID) REFERENCES OBJECTS(ID) ON DELETE CASCADE
                 );
                 """),
         TRACKS("""
@@ -97,32 +105,26 @@ public interface Database {
                     TITLE TEXT NOT NULL,
                     ALBUM INTEGER NOT NULL,
                     NUMBER INT NOT NULL,
-                    FOREIGN KEY (ID) REFERENCES OBJECTS(ID)
+                    FOREIGN KEY (ID) REFERENCES OBJECTS(ID) ON DELETE CASCADE,
                     FOREIGN KEY (ID) REFERENCES ALBUMS(ID)
-                );
-                """),
-        ARTISTS("""
-                CREATE TABLE IF NOT EXISTS ARTISTS (
-                ID INTEGER PRIMARY KEY,
-                FOREIGN KEY (ID) REFERENCES OBJECTS(ID)
                 );
                 """),
         TRACK_ARTISTS("""
                 CREATE TABLE IF NOT EXISTS TRACK_ARTISTS (
-                TRACK INTEGER NOT NULL,
-                ARTIST INTEGER NOT NULL,
-                PRIMARY KEY (TRACK, ARTIST),
-                FOREIGN KEY (TRACK) REFERENCES TRACKS(ID),
-                FOREIGN KEY (ARTIST) REFERENCES ARTISTS(ID)
+                    TRACK INTEGER NOT NULL,
+                    ARTIST INTEGER NOT NULL,
+                    PRIMARY KEY (TRACK, ARTIST),
+                    FOREIGN KEY (TRACK) REFERENCES TRACKS(ID) ON DELETE CASCADE,
+                    FOREIGN KEY (ARTIST) REFERENCES ARTISTS(ID) ON DELETE CASCADE
                 );
-        """),
+                """),
         ALBUM_ARTISTS("""
                 CREATE TABLE IF NOT EXISTS ALBUM_ARTISTS (
                     ALBUM INTEGER NOT NULL,
                     ARTIST INTEGER NOT NULL,
                     PRIMARY KEY (ALBUM, ARTIST),
-                    FOREIGN KEY (ALBUM) REFERENCES ALBUMS(ID),
-                    FOREIGN KEY (ARTIST) REFERENCES ARTISTS(ID)
+                    FOREIGN KEY (ALBUM) REFERENCES ALBUMS(ID) ON DELETE CASCADE,
+                    FOREIGN KEY (ARTIST) REFERENCES ARTISTS(ID) ON DELETE CASCADE
                 );
                 """);
 
@@ -137,5 +139,6 @@ public interface Database {
             return definition;
         }
     }
+
 
 }
