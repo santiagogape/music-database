@@ -43,27 +43,44 @@ PROJECT APPS
 3. main
    + initializes process, obtains resources to launch the app. 
 
+## notes for exiting
+checking the folder jaudiotagger for the dependencies to create in App.java
+
+## notes
+
+
 ## PROCESS
 
 ### setup
-1. reed objects + images
-2. grouping by type -> reed artist, track album (simple object, no references)
-3. once all objects are made, remake objects to have simple + typed + references
+1. creates database if doesn't exists
+2. creates each table
+3. creates token manager (uses token request and provides access token on demand)
+4. creates jaudiotagger to reed/write file's metadata
+5. app launch (files tab, request tab, json chooser tab, data tab)
 
-### adding
-1. view sets a window for the user to select the files to add to the database
-2. said files will be analysed to get either filename or title, album, artist and form a string "request"
-3. the database will be updated with the file reference and its request
-4. obtained previous string, the app calls the spotify api for each
-   1. if there's not an available token, one will be asked the api
-   2. a token life span is that of 1h so 1min before it expires,
-      a new one will be requested
-5. treated as a stream, the data obtain will be stored in a temporal table "RESPONSES",
-   given that the api response includes many versions, that might not be the actual song search initially
-   each entry will reference the file whose request was used for the call.
-6. the view will let you check the correct data, this won't be automatic,
+### flow
+1. view sets a tab for the user to select the files to add to the database
+   1. given a file, it will be used jaudiotagger to obtain a string called request:
+      either filename or title + album + artist
+   2. then it will be referenced as a FileSong which will be added to the database
+   3. those FileSong will be stored temporally to then be given to the request tab
+2. on the request tab, the database will be consulted to obtain FileSongs that doesn't have a response 
+   (before the creation time the new files where added to the database) 
+   and form a single list of FileSong to be requested to the spotifyAPI
+   1. once started the request, the token manager must update the token before it expires (1h)
+   2. for each response obtained from the api, a new Response will be made and updated in both the database and repository
+      and each response will be associated with a FileSong of the same ID
+   3. once the transaction is finished a follow-up window will open ->
+3. the view will let you check the correct data, this won't be automatic,
    since only the user knows the real song, it is possible to compare it 
    using the link to the track from spotify in this point
-7. once confirmed the selected data, the metadata from each file will be updated,
+   1. the Response has a path of the file to reference, which is the json from the response
+   2. so said json will be converted to spotify items such as track
+   3. once the correct SpotifyTrack is selected there will be more requests:
+      + first checking if for each item, the id exist in the database as OBJECTS(spotify)
+      1. for each of the artists of the track
+      2. the one to get the album
+      3. for each artist in the album 
+4. once confirmed the selected data, the metadata from each file will be updated,
    and then, if it's needed, it will be moved to the correct location in the storage
-8. after the files are moved to their final location, the database will be updated.
+5. after the files are moved to their final location, the database will be updated (commit).

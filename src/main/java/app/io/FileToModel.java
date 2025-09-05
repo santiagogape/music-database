@@ -9,6 +9,7 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.Map;
 
 public class FileToModel {
@@ -76,6 +77,16 @@ public class FileToModel {
             @Override
             public String name() {
                 return value.getName();
+            }
+
+            @Override
+            public ItemType type() {
+                return ItemType.response;
+            }
+
+            @Override
+            public LocalDateTime creation() {
+                return LocalDateTime.now();
             }
         };
     }

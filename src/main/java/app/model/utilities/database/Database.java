@@ -31,30 +31,29 @@ public interface Database {
         FILES("""
                 CREATE TABLE IF NOT EXISTS FILES (
                     ID INTEGER PRIMARY KEY AUTOINCREMENT,
-                    PATH TEXT NOT NULL,
                     NAME TEXT NOT NULL,
+                    PATH TEXT NOT NULL,
+                    CREATION NOT NULL,
                     TITLE TEXT,
                     ALBUM TEXT,
                     ARTISTS TEXT,
-                    REQUEST TEXT NOT NULL,
-                    CREATION NOT NULL
+                    REQUEST TEXT NOT NULL
                 );
                 """),
         RESPONSES("""
                 CREATE TABLE IF NOT EXISTS RESPONSES (
                     ID INTEGER PRIMARY KEY,
-                    PATH TEXT,
                     NAME TEXT,
+                    PATH TEXT,
+                    CREATION TEXT NOT NULL,
                     FOREIGN KEY (ID) REFERENCES FILES(ID) ON DELETE CASCADE
                 );
                 """),
         OBJECTS("""
                 CREATE TABLE IF NOT EXISTS OBJECTS (
                     ID INTEGER PRIMARY KEY AUTOINCREMENT,
-                    PATH TEXT NOT NULL,
-                    NAME TEXT NOT NULL,
                     TYPE TEXT NOT NULL,
-                    CREATION TEXT NOT NULL
+                    SPOTIFY TEXT NOT NULL UNIQUE
                 );
                 """),
         IMAGES("""
@@ -84,13 +83,15 @@ public interface Database {
                 """),
         ARTISTS("""
                 CREATE TABLE IF NOT EXISTS ARTISTS (
-                ID INTEGER PRIMARY KEY,
-                FOREIGN KEY (ID) REFERENCES OBJECTS(ID) ON DELETE CASCADE
+                    ID INTEGER PRIMARY KEY,
+                    NAME TEXT NOT NULL,
+                    FOREIGN KEY (ID) REFERENCES OBJECTS(ID) ON DELETE CASCADE
                 );
                 """),
         ALBUMS("""
                 CREATE TABLE IF NOT EXISTS ALBUMS (
                     ID INTEGER PRIMARY KEY,
+                    NAME TEXT NOT NULL,
                     TYPE TEXT NOT NULL,
                     TRACKS INT NOT NULL,
                     RELEASE TEXT NOT NULL,
@@ -102,9 +103,11 @@ public interface Database {
         TRACKS("""
                 CREATE TABLE IF NOT EXISTS TRACKS (
                     ID INTEGER PRIMARY KEY,
-                    TITLE TEXT NOT NULL,
+                    NAME TEXT NOT NULL,
                     ALBUM INTEGER NOT NULL,
                     NUMBER INT NOT NULL,
+                    PATH TEXT NOT NULL,
+                    CREATION TEXT NOT NULL,
                     FOREIGN KEY (ID) REFERENCES OBJECTS(ID) ON DELETE CASCADE,
                     FOREIGN KEY (ID) REFERENCES ALBUMS(ID)
                 );

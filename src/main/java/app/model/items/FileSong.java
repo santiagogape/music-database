@@ -5,5 +5,4 @@ public interface FileSong extends  FileReference {
     String album();
     String artists();
     String request();
-    String creation();
 }

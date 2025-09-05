@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<HBox xmlns="http://javafx.com/javafx"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="dependencies.view.JavaFX.controllers.files.FilesTabController"
+      spacing="16" style="-fx-padding: 16;">
+    <VBox VBox.vgrow="ALWAYS" HBox.hgrow="ALWAYS">
+        <Label text="Adding files from the temp folder to the database:"/>
+        <Button text="read temp folder" onAction="#onReadTemp"/>
+        <ListView fx:id="listFiles" HBox.hgrow="ALWAYS"/>
+    </VBox>
+    <VBox fx:id="responses" spacing="8" VBox.vgrow="ALWAYS" HBox.hgrow="ALWAYS" visible="false">
+        <Button fx:id="requestButton" text="consult API" onAction="#onStartRequesting" visible="false"/>
+        <ListView fx:id="listRequests" HBox.hgrow="ALWAYS"/>
+    </VBox>
+</HBox>

@@ -1,10 +1,9 @@
 package app.model.items;
 
-import java.util.List;
 
-public interface Track extends SimpleItem {
-    String title();
+public interface Track extends FileReference {
     Integer albumId();
     int number();
-    List<String> genres();
+
+    record TrackArtist(Integer trackId, Integer artistsId){}
 }

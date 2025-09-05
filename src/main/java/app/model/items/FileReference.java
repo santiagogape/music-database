@@ -1,7 +1,8 @@
 package app.model.items;
 
-public interface FileReference {
-    Integer id();
+import java.time.LocalDateTime;
+
+public interface FileReference extends SimpleItem {
     String path();
-    String name();
+    LocalDateTime creation();
 }

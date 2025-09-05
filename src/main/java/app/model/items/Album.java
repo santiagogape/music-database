@@ -1,14 +1,21 @@
 package app.model.items;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 public interface Album extends SimpleItem {
     AlbumType albumType();
+    int tracks();
     LocalDateTime release();
-    String precision();
+    ReleasePrecision precision();
+    String label();
 
     enum AlbumType {
         single, album, compilation, ep
     }
+
+    enum ReleasePrecision {
+        year, month, day
+    }
+
+    record AlbumArtist(Integer albumId, Integer artistsId){}
 }
