@@ -32,7 +32,7 @@ public interface Database {
                 CREATE TABLE IF NOT EXISTS FILES (
                     ID INTEGER PRIMARY KEY AUTOINCREMENT,
                     NAME TEXT NOT NULL,
-                    PATH TEXT NOT NULL,
+                    PATH TEXT UNIQUE NOT NULL,
                     CREATION NOT NULL,
                     TITLE TEXT,
                     ALBUM TEXT,
@@ -43,8 +43,8 @@ public interface Database {
         RESPONSES("""
                 CREATE TABLE IF NOT EXISTS RESPONSES (
                     ID INTEGER PRIMARY KEY,
-                    NAME TEXT,
-                    PATH TEXT,
+                    NAME TEXT NOT NULL,
+                    PATH TEXT UNIQUE NOT NULL,
                     CREATION TEXT NOT NULL,
                     FOREIGN KEY (ID) REFERENCES FILES(ID) ON DELETE CASCADE
                 );
@@ -60,7 +60,7 @@ public interface Database {
                 CREATE TABLE IF NOT EXISTS IMAGES (
                     OBJECT INTEGER NOT NULL,
                     NUMBER INT NOT NULL,
-                    PATH TEXT NOT NULL,
+                    PATH TEXT UNIQUE NOT NULL,
                     WIDTH INT NOT NULL,
                     HEIGHT INT NOT NULL,
                     FOREIGN KEY (OBJECT) REFERENCES OBJECTS(ID) ON DELETE CASCADE,
@@ -106,7 +106,7 @@ public interface Database {
                     NAME TEXT NOT NULL,
                     ALBUM INTEGER NOT NULL,
                     NUMBER INT NOT NULL,
-                    PATH TEXT NOT NULL,
+                    PATH TEXT UNIQUE NOT NULL,
                     CREATION TEXT NOT NULL,
                     FOREIGN KEY (ID) REFERENCES OBJECTS(ID) ON DELETE CASCADE,
                     FOREIGN KEY (ID) REFERENCES ALBUMS(ID)

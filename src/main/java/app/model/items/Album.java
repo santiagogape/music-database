@@ -10,7 +10,7 @@ public interface Album extends SimpleItem {
     String label();
 
     enum AlbumType {
-        single, album, compilation, ep
+        single, album, compilation
     }
 
     enum ReleasePrecision {

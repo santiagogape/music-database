@@ -1,5 +1,6 @@
-package app.control.files;
+package app.control.files.actors;
 
+import app.control.files.ProcessMetadataToRequestString;
 import app.model.items.FileSong;
 import app.model.utilities.filesMetadata.Mp3Metadata;
 

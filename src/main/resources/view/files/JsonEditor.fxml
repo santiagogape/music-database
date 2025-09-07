@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import java.util.*?>
+<?import javafx.scene.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="dependencies.view.JavaFX.controllers.files.JsonEditorController"
+            prefHeight="400.0" prefWidth="600.0">
+
+
+    <HBox spacing="8">
+        <Button text="Guardar JSON" onAction="#onSaveFile"/>
+    </HBox>
+
+    <TextArea fx:id="textArea"
+              wrapText="true"
+              VBox.vgrow="ALWAYS"
+              prefWidth="600"
+              prefHeight="400"/>
+
+</VBox>

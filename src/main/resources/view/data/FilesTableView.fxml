@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+      fx:controller="dependencies.view.JavaFX.controllers.database.FilesTableViewController"
+      spacing="8" style="-fx-padding: 16;">
+
+    <TableView fx:id="filesTable" VBox.vgrow="ALWAYS">
+        <columns>
+            <TableColumn fx:id="colId" text="ID"/>
+            <TableColumn fx:id="colName" text="NAME"/>
+            <TableColumn fx:id="colPath" text="PATH"/>
+            <TableColumn fx:id="colCreation" text="CREATION"/>
+            <TableColumn fx:id="colTitle" text="TITLE"/>
+            <TableColumn fx:id="colAlbum" text="ALBUM"/>
+            <TableColumn fx:id="colArtists" text="ARTISTS"/>
+            <TableColumn fx:id="colRequest" text="REQUEST"/>
+        </columns>
+    </TableView>
+
+    <Button text="Refresh" onAction="#onRefresh"/>
+
+</VBox>

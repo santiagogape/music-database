@@ -2,6 +2,8 @@ package app.model.utilities;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -11,7 +13,7 @@ public class Chronometer {
     private final Timer timer;
     private int minutes;
     private int seconds;
-    private ChronometerListener listener;
+    private List<ChronometerObserver> observers;
 
     public Chronometer(int seconds) {
         LocalDateTime start = LocalDateTime.now();
@@ -20,10 +22,12 @@ public class Chronometer {
         this.minutes = 0;
         this.seconds = 0;
         this.timer = createTimer(seconds);
+        observers = new ArrayList<>();
+        timer.cancel();
     }
 
-    public void registerListener(ChronometerListener listener){
-        this.listener = listener;
+    public void registerListener(ChronometerObserver observer){
+        observers.add(observer);
     }
 
     private Timer createTimer(int seconds) {
@@ -38,7 +42,8 @@ public class Chronometer {
                 } else {
                     Chronometer.this.minutes = (time % 3600) / 60;
                     Chronometer.this.seconds = time % 60;
-                    System.out.printf("Time left - %02d:%02d%n", Chronometer.this.minutes, Chronometer.this.seconds);
+                    Chronometer.this.notifyObservers();
+                    //System.out.printf("Time left - %02d:%02d%n", Chronometer.this.minutes, Chronometer.this.seconds);
                     time--;
                 }
             }
@@ -46,7 +51,12 @@ public class Chronometer {
         return timer;
     }
 
+    private void notifyObservers() {
+        observers.forEach(o -> o.onTick(this.minutes,this.seconds));
+    }
+
     public LocalDateTime getEnd() { return end;}
     public int getMinutes() { return minutes;}
     public int getSeconds() { return seconds;}
+    public void finish(){this.timer.cancel();}
 }

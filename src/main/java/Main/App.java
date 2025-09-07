@@ -3,15 +3,16 @@ package Main;
 import Main.Database.MainDatabase;
 import Main.configurations.UserConfig;
 import app.control.TokenManager;
-import app.control.files.JsonWriter;
-import app.control.files.MP3Processor;
+import app.control.files.actors.JsonWriter;
+import app.control.files.actors.MP3Processor;
 import app.control.files.ProcessMetadataToRequestString;
-import app.control.files.TempFolder;
+import app.model.utilities.TempFolder;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import dependencies.control.GsonJsonWriter;
 import dependencies.control.JAudioTaggerMP3MetadataReader;
 import dependencies.model.SQLite.MusicSQLiteDatabase;
+import dependencies.spotify.control.SpotifyTokenManager;
 import dependencies.spotify.model.auth.ClientCredentials;
 import dependencies.spotify.model.auth.TokenRequest;
 import javafx.application.Application;
@@ -36,7 +37,7 @@ public class App extends Application {
     static final ClientCredentials credentials =
             gson.fromJson(getInputStreamReader("/client-credentials.json"), ClientCredentials.class);
     static final TokenManager tokenManager =
-            new dependencies.spotify.control.TokenManager(HttpClient.newHttpClient(), new TokenRequest(credentials));
+            new SpotifyTokenManager(HttpClient.newHttpClient(), new TokenRequest(credentials));
 
     static final JsonWriter jsonWriter = new GsonJsonWriter(gson);
     static final MP3Processor mp3Processor = new MP3Processor(new JAudioTaggerMP3MetadataReader(), new ProcessMetadataToRequestString());
@@ -66,7 +67,7 @@ public class App extends Application {
         Scene scene = new Scene(loader.load(), 900, 600);
 
         MainController mainController = loader.getController();
-        mainController.init(mainDatabase, tempFolderForNewFiles, mp3Processor);
+        mainController.init(mainDatabase, tempFolderForNewFiles, mp3Processor, tokenManager, gson);
         System.out.println("main init ready");
 
         stage.setScene(scene);
@@ -82,7 +83,7 @@ public class App extends Application {
     private static InputStreamReader getInputStreamReader(String path) {
         return new InputStreamReader(
                 Objects.requireNonNull(
-                        Main.class.getResourceAsStream(path)
+                        App.class.getResourceAsStream(path)
                 ),
                 StandardCharsets.UTF_8);
     }

@@ -7,9 +7,6 @@ public class SpotifySimplifiedObject {
     private final String type;
     private final String uri;
     private final String id;
-
-
-
     private final SpotifyExternalUrls external_urls;
 
     /*

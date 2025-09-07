@@ -7,13 +7,15 @@
       xmlns:fx="http://javafx.com/fxml"
       fx:controller="dependencies.view.JavaFX.controllers.files.FilesTabController"
       spacing="16" style="-fx-padding: 16;">
-    <VBox VBox.vgrow="ALWAYS" HBox.hgrow="ALWAYS">
+    <VBox fx:id="files" VBox.vgrow="ALWAYS" HBox.hgrow="ALWAYS" visible="false" managed="false">
         <Label text="Adding files from the temp folder to the database:"/>
-        <Button text="read temp folder" onAction="#onReadTemp"/>
+        <Button fx:id="readTempButton" text="read temp folder" onAction="#onReadTemp"/>
+        <Button fx:id="readFolderButton" text="read another folder" onAction="#onReadFolder"/>
         <ListView fx:id="listFiles" HBox.hgrow="ALWAYS"/>
     </VBox>
-    <VBox fx:id="responses" spacing="8" VBox.vgrow="ALWAYS" HBox.hgrow="ALWAYS" visible="false">
-        <Button fx:id="requestButton" text="consult API" onAction="#onStartRequesting" visible="false"/>
+    <VBox fx:id="responses" spacing="8" VBox.vgrow="ALWAYS" HBox.hgrow="ALWAYS" >
+        <Button fx:id="requestButton" text="consult API" onAction="#onStartRequesting"/>
         <ListView fx:id="listRequests" HBox.hgrow="ALWAYS"/>
     </VBox>
+    <fx:include fx:id="jsonEditor" source="JsonEditor.fxml" visible="false"/>
 </HBox>

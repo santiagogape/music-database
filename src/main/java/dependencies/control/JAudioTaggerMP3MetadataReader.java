@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
-import app.control.files.MP3MetadataReader;
+import app.control.files.actors.MP3MetadataReader;
 import app.model.utilities.filesMetadata.Mp3Metadata;
 
 import org.jaudiotagger.audio.AudioFile;

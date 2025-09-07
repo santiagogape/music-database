@@ -6,7 +6,7 @@ public interface SimpleItem {
     String name();
     ItemType type();
 
-    enum ItemType{ track, album, artist, image, playlist, file, response }
+    enum ItemType{ track, album, artist, image, file, response }
     record ItemUri(Integer id, ItemType type, String spotifyId){
         String spotifyUri(){
             return "spotify:"+ type.name() + ":" + spotifyId;

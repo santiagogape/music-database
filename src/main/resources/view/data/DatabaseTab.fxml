@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+      fx:controller="dependencies.view.JavaFX.controllers.database.DatabaseTabController"
+      spacing="8" style="-fx-padding: 16;">
+
+    <Label text="Datos (SQLite)" />
+
+    <!-- ComboBox para escoger tabla -->
+    <HBox spacing="8">
+        <Label text="Tabla:" />
+        <ComboBox fx:id="comboTables" prefWidth="200"/>
+    </HBox>
+
+    <!-- Aquí se cargará dinámicamente la vista de la tabla seleccionada -->
+    <StackPane fx:id="tableContainer" VBox.vgrow="ALWAYS" />
+
+</VBox>

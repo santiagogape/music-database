@@ -1,7 +1,6 @@
 package dependencies.spotify.model.auth;
 
 import app.model.utilities.Chronometer;
-import app.model.utilities.ChronometerListener;
 
 public class AccessToken {
 
@@ -17,11 +16,11 @@ public class AccessToken {
 
 
 
-    public String getToken() {
+    public String token() {
         return token;
     }
 
-    public String getType() {
+    public String type() {
         return type;
     }
 

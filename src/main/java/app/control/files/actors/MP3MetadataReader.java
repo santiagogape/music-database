@@ -1,4 +1,4 @@
-package app.control.files;
+package app.control.files.actors;
 
 import app.model.utilities.filesMetadata.Mp3Metadata;
 

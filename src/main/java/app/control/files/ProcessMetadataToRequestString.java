@@ -21,11 +21,11 @@ public final class ProcessMetadataToRequestString {
                         if (meta.title().equalsIgnoreCase(meta.album())) {
                             return artistInTitle
                                     ? meta.title()
-                                    : String.join(",", meta.title(), cleanArtists);
+                                    : String.join(" artist:", meta.title(), cleanArtists);
                         } else {
                             return artistInTitle
-                                    ? String.join(",", meta.title(), meta.album())
-                                    : String.join(",", meta.title(), meta.album(), cleanArtists);
+                                    ? String.join(" album:", meta.title(), meta.album())
+                                    : String.join(" artist:", String.join(" album:", meta.title(), meta.album()), cleanArtists);
                         }
 
                     } else {
