@@ -1,13 +1,10 @@
 package dependencies.view.JavaFX.controllers.files;
 
-import com.google.errorprone.annotations.FormatMethod;
 import com.google.gson.Gson;
 import dependencies.spotify.model.items.SpotifyTrackSearchResponse;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.TextArea;
-import javafx.stage.FileChooser;
-import javafx.stage.Stage;
 
 import java.io.IOException;
 import java.nio.file.Files;

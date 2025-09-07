@@ -13,7 +13,7 @@ public class Chronometer {
     private final Timer timer;
     private int minutes;
     private int seconds;
-    private List<ChronometerObserver> observers;
+    private final List<ChronometerObserver> observers;
 
     public Chronometer(int seconds) {
         LocalDateTime start = LocalDateTime.now();

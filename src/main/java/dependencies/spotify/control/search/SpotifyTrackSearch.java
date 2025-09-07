@@ -28,7 +28,7 @@ public class SpotifyTrackSearch implements TrackSearch {
                 .GET()
                 .build();
 
-        HttpResponse<String> response = null;
+        HttpResponse<String> response;
         try {
             response = client.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() == 429) {

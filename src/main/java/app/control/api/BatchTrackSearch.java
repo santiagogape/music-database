@@ -63,7 +63,7 @@ public class BatchTrackSearch {
                     scheduler.shutdown();
                     System.out.println("BatchTrackSearch terminado.");
                     return;
-                };
+                }
                 batchObservers.get(next).start();
             }
         };
