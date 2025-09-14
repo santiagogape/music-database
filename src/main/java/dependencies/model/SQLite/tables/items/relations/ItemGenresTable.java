@@ -12,7 +12,7 @@ import java.util.Optional;
 
 import java.util.*;
 
-public class ItemGenresTable implements Database.Table<Genre.ItemGenre> {
+public class ItemGenresTable implements Database.TableIntID<Genre.ItemGenre> {
 
     private final Connection connection;
 
@@ -52,12 +52,6 @@ public class ItemGenresTable implements Database.Table<Genre.ItemGenre> {
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    @Override
-    @Deprecated
-    public Genre.ItemGenre update(Integer id, Genre.ItemGenre item) {
-        return null;
     }
 
     @Override

@@ -9,12 +9,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-public class ObjectsTable implements Database.Table<SimpleItem.ItemUri> {
+public class ObjectsTable implements Database.TableIntID<SimpleItem.ItemUri> {
 
     private final Connection connection;
     static final String id = "ID";
     static final String type = "TYPE";
-    static final String spotify = "SPOTIFY";
+    static final String source = "SOURCE";
+    static final String idSource = "ID_SOURCE";
 
     public ObjectsTable(Connection connection) {
         this.connection = connection;
@@ -23,13 +24,14 @@ public class ObjectsTable implements Database.Table<SimpleItem.ItemUri> {
     @Override
     public SimpleItem.ItemUri insert(SimpleItem.ItemUri item) {
         String sql = """
-        INSERT INTO OBJECTS(TYPE, SPOTIFY)
-        VALUES (?, ?)
+        INSERT INTO OBJECTS(TYPE, SOURCE, ID_SOURCE)
+        VALUES (?, ?, ?)
         """;
 
         try (PreparedStatement stmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             stmt.setString(1, item.type().name());
-            stmt.setString(2, item.spotifyId());
+            stmt.setString(2, item.source().name());
+            stmt.setString(3, item.sourceId());
 
             int affected = stmt.executeUpdate();
 
@@ -54,13 +56,14 @@ public class ObjectsTable implements Database.Table<SimpleItem.ItemUri> {
     }
 
     private SimpleItem.ItemUri updateItemURIWithID(SimpleItem.ItemUri item, int id) {
-        return new SimpleItem.ItemUri(id, item.type(), item.spotifyId());
+        return new SimpleItem.ItemUri(id, item.source(), item.type(), item.sourceId());
     }
 
     private Optional<SimpleItem.ItemUri> dataToItemUri(Integer id, ResultSet rs) throws SQLException {
         String type = rs.getString(ObjectsTable.type);
-        String spotify = rs.getString(ObjectsTable.spotify);
-        return Optional.of(new SimpleItem.ItemUri(id, SimpleItem.ItemType.valueOf(type), spotify));
+        String source = rs.getString(ObjectsTable.source);
+        String sourceId = rs.getString(ObjectsTable.idSource);
+        return Optional.of(new SimpleItem.ItemUri(id, Database.ItemSource.valueOf(source), SimpleItem.ItemType.valueOf(type), sourceId));
     }
 
     private Optional<SimpleItem.ItemUri> dataToItemUri(ResultSet rs) throws SQLException {
@@ -78,12 +81,6 @@ public class ObjectsTable implements Database.Table<SimpleItem.ItemUri> {
             throw new RuntimeException(e);
         }
 
-    }
-
-    @Override
-    @Deprecated
-    public SimpleItem.ItemUri update(Integer id, SimpleItem.ItemUri item) {
-        return null;
     }
 
     @Override

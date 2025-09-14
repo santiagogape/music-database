@@ -10,7 +10,7 @@ import java.util.Optional;
 import java.sql.*;
 import java.util.*;
 
-public class AlbumArtistsTable implements Database.Table<Album.AlbumArtist> {
+public class AlbumArtistsTable implements Database.TableIntID<Album.AlbumArtist> {
 
     private final Connection connection;
 
@@ -50,12 +50,6 @@ public class AlbumArtistsTable implements Database.Table<Album.AlbumArtist> {
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    @Override
-    @Deprecated
-    public Album.AlbumArtist update(Integer id, Album.AlbumArtist item) {
-        return null;
     }
 
     @Override

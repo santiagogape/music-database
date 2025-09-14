@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-public class TracksArtistsTable implements Database.Table<Track.TrackArtist> {
+public class TracksArtistsTable implements Database.TableIntID<Track.TrackArtist> {
 
     private final Connection connection;
 
@@ -49,12 +49,6 @@ public class TracksArtistsTable implements Database.Table<Track.TrackArtist> {
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    @Override
-    @Deprecated
-    public Track.TrackArtist update(Integer id, Track.TrackArtist item) {
-        return null;
     }
 
     @Override

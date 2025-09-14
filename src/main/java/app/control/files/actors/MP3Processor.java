@@ -48,7 +48,7 @@ public class MP3Processor {
             }
 
             @Override
-            public String path() {
+            public String directory() {
                 return folder.resolve(name()).toString();
             }
 

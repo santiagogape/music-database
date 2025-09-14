@@ -9,15 +9,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static dependencies.model.SQLite.MusicSQLiteDatabase.LocalDateTimeFromString;
-import static dependencies.model.SQLite.MusicSQLiteDatabase.LocalDateTimeToString;
+import static Main.MainDatabase.LocalDateTimeFromString;
+import static Main.MainDatabase.LocalDateTimeToString;
 
 
-public class FilesTable implements Database.Table<FileSong> {
+public class FilesTable implements Database.UpdateTableIntID<FileSong> {
 
     static final String id = "ID";
     static final String name = "NAME";
-    static final String path = "PATH";
+    static final String directory = "DIRECTORY";
     static final String creation = "CREATION";
     static final String title = "TITLE";
     static final String album = "ALBUM";
@@ -34,13 +34,15 @@ public class FilesTable implements Database.Table<FileSong> {
     @Override
     public FileSong insert(FileSong item) {
         String sql = """
-        INSERT INTO FILES(NAME, PATH, CREATION, TITLE, ALBUM, ARTISTS, REQUEST)
+        INSERT INTO FILES(NAME, DIRECTORY, CREATION, TITLE, ALBUM, ARTISTS, REQUEST)
         VALUES (?, ?, ?, ?, ?, ?, ?)
         """;
+        System.out.println(connection);
+
 
         try (PreparedStatement stmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             stmt.setString(1, item.name());
-            stmt.setString(2, item.path());
+            stmt.setString(2, item.directory());
             stmt.setString(3, LocalDateTimeToString(item.creation()));
             stmt.setString(4, item.title());
             stmt.setString(5, item.album());
@@ -102,8 +104,8 @@ public class FilesTable implements Database.Table<FileSong> {
             }
 
             @Override
-            public String path() {
-                return item.path();
+            public String directory() {
+                return item.directory();
             }
 
             @Override
@@ -131,12 +133,6 @@ public class FilesTable implements Database.Table<FileSong> {
     }
 
     @Override
-    @Deprecated
-    public FileSong update(Integer id, FileSong item) {
-        return null;
-    }
-
-    @Override
     public Optional<FileSong> get(Integer id) {
         String sql = "SELECT * FROM FILES WHERE ID = ?";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
@@ -153,7 +149,7 @@ public class FilesTable implements Database.Table<FileSong> {
     }
 
     private static Optional<FileSong> dataToFileSong(Integer id, ResultSet rs) throws SQLException {
-        String path = rs.getString(FilesTable.path);
+        String directory = rs.getString(FilesTable.directory);
         String name = rs.getString(FilesTable.name);
         String title = rs.getString(FilesTable.title);
         String album = rs.getString(FilesTable.album);
@@ -193,8 +189,8 @@ public class FilesTable implements Database.Table<FileSong> {
                     }
 
                     @Override
-                    public String path() {
-                        return path;
+                    public String directory() {
+                        return directory;
                     }
 
                     @Override
@@ -249,5 +245,22 @@ public class FilesTable implements Database.Table<FileSong> {
             throw new RuntimeException(e);
         }
         return results;
+    }
+
+    @Override
+    public FileSong update(FileSong item) {
+        String sql = """
+                UPDATE RESPONSES SET NAME = ?,
+                 DIRECTORY = ? WHERE id = ?""";
+
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, item.name());
+            pstmt.setString(2, item.directory());
+            pstmt.setInt(3, item.id());
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return item;
     }
 }

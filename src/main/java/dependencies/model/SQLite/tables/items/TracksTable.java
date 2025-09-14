@@ -3,19 +3,16 @@ package dependencies.model.SQLite.tables.items;
 import app.model.items.Track;
 import app.model.utilities.database.Database;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static dependencies.model.SQLite.MusicSQLiteDatabase.LocalDateTimeFromString;
-import static dependencies.model.SQLite.MusicSQLiteDatabase.LocalDateTimeToString;
+import static Main.MainDatabase.LocalDateTimeFromString;
+import static Main.MainDatabase.LocalDateTimeToString;
 
-public class TracksTable implements Database.Table<Track> {
+public class TracksTable implements Database.TableIntID<Track> {
 
     private final Connection connection;
 
@@ -25,6 +22,20 @@ public class TracksTable implements Database.Table<Track> {
 
     @Override
     public Track insert(Track item) {
+        try (Statement st = connection.createStatement()){
+            ResultSet resultSet = st.executeQuery("SELECT ID FROM OBJECTS WHERE ID = " + item.id());
+            if (resultSet.next()) {
+                System.out.println("exist item id"+resultSet.getInt(1));
+            }
+            resultSet = st.executeQuery("SELECT ID FROM ALBUMS WHERE ID = " + item.albumId());
+            if (resultSet.next()) {
+                System.out.println("exist album id"+resultSet.getInt(1));
+            }
+
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
         String sql = """
         INSERT INTO TRACKS(ID, NAME, ALBUM, NUMBER, PATH, CREATION)
         VALUES (?, ?, ?, ?, ?, ?)
@@ -35,10 +46,12 @@ public class TracksTable implements Database.Table<Track> {
             stmt.setString(2, item.name());
             stmt.setInt(3, item.albumId());
             stmt.setInt(4, item.number());
-            stmt.setString(5, item.path());
+            stmt.setString(5, item.directory());
             stmt.setString(6, LocalDateTimeToString(item.creation()));
 
+            System.out.println(stmt);
             int affected = stmt.executeUpdate();
+            System.out.println("inserted");
             if (affected == 0) {
                 throw new SQLException("Not inserted TRACKS.");
             }
@@ -58,12 +71,6 @@ public class TracksTable implements Database.Table<Track> {
             throw new RuntimeException(e);
         }
 
-    }
-
-    @Override
-    @Deprecated
-    public Track update(Integer id, Track item) {
-        return null;
     }
 
     @Override
@@ -103,7 +110,7 @@ public class TracksTable implements Database.Table<Track> {
             }
 
             @Override
-            public String path() {
+            public String directory() {
                 return path;
             }
 

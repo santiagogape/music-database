@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Optional;
 
 
-public class ArtistsTable implements Database.Table<Artist>  {
+public class ArtistsTable implements Database.TableIntID<Artist>  {
 
     private final Connection connection;
 
@@ -49,11 +49,6 @@ public class ArtistsTable implements Database.Table<Artist>  {
         }
     }
 
-    @Override
-    @Deprecated
-    public Artist update(Integer id, Artist item) {
-        return null;
-    }
 
     @Override
     public Optional<Artist> get(Integer id) {

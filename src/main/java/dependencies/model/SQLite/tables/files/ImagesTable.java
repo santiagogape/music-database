@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-public class ImagesTable implements Database.Table<ItemImage> {
+public class ImagesTable implements Database.TableIntID<ItemImage> {
 
     private final Connection connection;
     static final String item = "OBJECT";
@@ -92,10 +92,6 @@ public class ImagesTable implements Database.Table<ItemImage> {
         }
     }
 
-    @Override
-    public ItemImage update(Integer id, ItemImage item) {
-        return null;
-    }
 
     @Override
     public Optional<ItemImage> get(Integer id) {

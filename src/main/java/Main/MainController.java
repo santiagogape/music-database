@@ -1,6 +1,5 @@
 package Main;
 
-import Main.Database.MainDatabase;
 import app.control.TokenManager;
 import app.control.files.actors.MP3Processor;
 import app.control.files.listener.FileSongProcessor;
@@ -48,7 +47,7 @@ public class MainController {
 
     private List<FileSong> addFileSongs(List<FileSong> fileSongs){
         fileSongs.forEach(f -> System.out.println(f.name()));
-        return fileSongs.stream().map(f -> this.mainDatabase.getFiles().getFilesTable().insert(f)).toList();
+        return fileSongs.stream().map(f -> this.mainDatabase.getFilesTable().insert(f)).toList();
         // this.mainDatabase.getDatabase().commit();
     }
 

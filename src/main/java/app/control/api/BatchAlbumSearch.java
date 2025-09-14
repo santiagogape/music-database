@@ -9,19 +9,25 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-public class BatchTrackSearch implements BatchSearch{
+public class BatchAlbumSearch implements BatchSearch {
 
-    private final List<String> queries;
-    private final TokenManager tokenManager;
+    private final List<String> albumIds;
+    private final TokenManager manager;
     private final int delay;
-    private final Search searcher;
+    private final MultipleSearcher searcher;
     private final ResponsesObserver observer;
     private final ScheduledExecutorService scheduler;
-    private final List<app.control.api.BatchObserver> batchObservers;
+    private final ArrayList<BatchObserver> batchObservers;
 
-    public BatchTrackSearch(List<String> queries, TokenManager tokenManager, int delay, Search searcher, ResponsesObserver observer) {
-        this.queries = queries;
-        this.tokenManager = tokenManager;
+    public BatchAlbumSearch(
+            List<String> albumIds,
+            TokenManager manager,
+            int delay,
+            MultipleSearcher searcher,
+            ResponsesObserver observer
+    ) {
+        this.albumIds = albumIds;
+        this.manager = manager;
         this.delay = delay;
         this.searcher = searcher;
         this.observer = observer;
@@ -31,29 +37,35 @@ public class BatchTrackSearch implements BatchSearch{
 
     @Override
     public void start() {
+        int searchLimit = 50;
         int batchSize = 10;
 
-        for (int i = 0; i < queries.size(); i += batchSize) {
-            int end = Math.min(i + batchSize, queries.size());
-            List<String> batch = queries.subList(i, end);
+        List<List<String>> severalArtists = new ArrayList<>();
+        for (int i = 0; i < albumIds.size(); i += searchLimit) {
+            int end = Math.min(i + batchSize, albumIds.size());
+            severalArtists.add(albumIds.subList(i, end));
+        }
+
+        for (int i = 0; i < severalArtists.size(); i += batchSize) {
+            int end = Math.min(i + batchSize, severalArtists.size());
+            List<List<String>> batch = severalArtists.subList(i, end);
             System.out.println(i + " batch:" + batch);
             batchObservers.add(createBatchObserver(batch, i / batchSize, this.delay));
         }
 
         batchObservers.getFirst().start();
-
     }
 
-    private BatchObserver createBatchObserver(List<String> batch, int index, int delay) {
+    private BatchObserver createBatchObserver(List<List<String>> batch, int i, int delay) {
         return new BatchObserver() {
             @Override
             public void start() {
-                scheduler.schedule(() -> processBatch(batch, index), delay, TimeUnit.SECONDS);
+                scheduler.schedule(() -> processBatch(batch, i), delay, TimeUnit.SECONDS);
             }
 
             @Override
             public void onFinish() {
-                int next = index + 1;
+                int next = i + 1;
                 if (next == batchObservers.size()) {
                     observer.finished();
                     scheduler.shutdown();
@@ -65,29 +77,29 @@ public class BatchTrackSearch implements BatchSearch{
         };
     }
 
-    private void processBatch(List<String> batch, int index) {
+    private void processBatch(List<List<String>> batch, int index) {
         System.out.println("starting " + index + " batch");
-        Chronometer chronometer = tokenManager.accessToken().getChronometer();
+        Chronometer chronometer = manager.accessToken().getChronometer();
         System.out.printf("Time left - %02d:%02d%n", chronometer.getMinutes(), chronometer.getSeconds());
-        for (String q : batch) {
+        for (List<String> ids: batch){
             try {
-                processQueryFromBatch(q);
+                processQueryFromBatch(ids);
             } catch (TooManyRequests e) {
                 int retryAfter = Integer.parseInt(e.getMessage().split(":")[1]);
                 System.out.println("429 recibido. Esperando " + retryAfter + "s...");
-                scheduler.schedule(() -> processQueryFromBatch(q), retryAfter, TimeUnit.SECONDS);
+                scheduler.schedule(() -> processQueryFromBatch(ids), retryAfter, TimeUnit.SECONDS);
             }
         }
         System.out.println("finished " + index + " batch");
         batchObservers.get(index).onFinish();
     }
 
-    private void processQueryFromBatch(String q) throws TooManyRequests {
+    private void processQueryFromBatch(List<String> ids)  throws TooManyRequests {
         System.out.println("next:");
-        String response = searcher.search(tokenManager.accessToken().token(), q);
+        String response = searcher.search(manager.accessToken().token(), ids);
         System.out.println("notifying");
-        observer.notify(q,response);
-        Chronometer chronometer = tokenManager.accessToken().getChronometer();
+        observer.notify("ids:"+String.join(",",ids),response);
+        Chronometer chronometer = manager.accessToken().getChronometer();
         System.out.printf("Time left - %02d:%02d%n", chronometer.getMinutes(), chronometer.getSeconds());
     }
 }

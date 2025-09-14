@@ -3,8 +3,6 @@ package dependencies.model.SQLite;
 import app.model.utilities.database.Database;
 
 import java.sql.*;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -27,17 +25,6 @@ public class MusicSQLiteDatabase implements Database {
         } catch (SQLException e) {
             e.printStackTrace();
         }
-    }
-
-    public static DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    public static String now(){
-        return LocalDateTime.now().format(fmt);
-    }
-    public static String LocalDateTimeToString(LocalDateTime time){
-        return time.format(fmt);
-    }
-    public static LocalDateTime LocalDateTimeFromString(String time){
-         return LocalDateTime.parse(time, fmt);
     }
 
     @Override
@@ -68,16 +55,6 @@ public class MusicSQLiteDatabase implements Database {
     @Override
     public String name() {
         return name;
-    }
-
-    @Override
-    public void createTable(String definition) {
-        execute(definition);
-    }
-
-    @Override
-    public void deleteTable(String name) {
-        execute("DROP TABLE IF EXISTS " + name + ";");
     }
 
     @Override

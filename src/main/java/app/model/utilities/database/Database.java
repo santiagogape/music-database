@@ -12,40 +12,71 @@ public interface Database {
     String folder();
     String name();
 
-    void createTable(String definition);
-    void deleteTable(String name);
     List<String> tables();
     void initialize();
 
     interface Table<T> {
         T insert(T item);
-        void delete(Integer id);
-        T update(Integer id, T item);
-        Optional<T> get(Integer id);
         List<T> query(String sql);
         List<T> all();
         List<T> allWithOffset(Integer offset);
     }
 
+    interface TableIntID<T> extends Table<T>{
+        void delete(Integer id);
+        Optional<T> get(Integer id);
+    }
+
+    interface TableStringID<T> extends Table<T>{
+        void delete(String id);
+        Optional<T> get(String id);
+    }
+
+    interface UpdateTableIntID<T> extends TableIntID<T>{
+        T update(T item);
+    }
+
+    interface UpdateTableStringID<T> extends TableStringID<T>{
+        T update(T item);
+    }
+
+    enum ItemSource {
+        spotify,youtube,tiktok,other
+    }
+
     enum Tables {
+        DIRECTORIES("""
+                CREATE TABLE IF NOT EXISTS DIRECTORIES (
+                    NAME TEXT PRIMARY KEY
+                );
+                """),
         FILES("""
                 CREATE TABLE IF NOT EXISTS FILES (
                     ID INTEGER PRIMARY KEY AUTOINCREMENT,
                     NAME TEXT NOT NULL,
-                    PATH TEXT UNIQUE NOT NULL,
-                    CREATION NOT NULL,
+                    DIRECTORY TEXT NOT NULL,
+                    CREATION TEXT NOT NULL,
                     TITLE TEXT,
                     ALBUM TEXT,
                     ARTISTS TEXT,
-                    REQUEST TEXT NOT NULL
+                    REQUEST TEXT NOT NULL,
+                    UNIQUE (DIRECTORY, NAME),
+                    FOREIGN KEY (DIRECTORY) REFERENCES DIRECTORIES(NAME)
                 );
                 """),
         RESPONSES("""
                 CREATE TABLE IF NOT EXISTS RESPONSES (
                     ID INTEGER PRIMARY KEY,
                     NAME TEXT NOT NULL,
-                    PATH TEXT UNIQUE NOT NULL,
+                    PATH TEXT NOT NULL,
                     CREATION TEXT NOT NULL,
+                    STATUS TEXT NOT NULL DEFAULT 'not_checked',
+                    FOREIGN KEY (ID) REFERENCES FILES(ID) ON DELETE CASCADE
+                );
+                """),
+        SOURCES("""
+                CREATE TABLE IF NOT EXISTS SOURCES (
+                    ID INTEGER PRIMARY KEY,
                     FOREIGN KEY (ID) REFERENCES FILES(ID) ON DELETE CASCADE
                 );
                 """),
@@ -53,7 +84,18 @@ public interface Database {
                 CREATE TABLE IF NOT EXISTS OBJECTS (
                     ID INTEGER PRIMARY KEY AUTOINCREMENT,
                     TYPE TEXT NOT NULL,
-                    SPOTIFY TEXT NOT NULL UNIQUE
+                    SOURCE TEXT NOT NULL DEFAULT 'spotify',
+                    ID_SOURCE TEXT NOT NULL UNIQUE
+                );
+                """),
+        WEB_IMAGES("""
+                CREATE TABLE IF NOT EXISTS WEB_IMAGES(
+                    OBJECT INTEGER NOT NULL,
+                    SOURCE TEXT UNIQUE NOT NULL,
+                    WIDTH INT NOT NULL,
+                    HEIGHT INT NOT NULL,
+                    FOREIGN KEY (OBJECT) REFERENCES OBJECTS(ID) ON DELETE CASCADE,
+                    PRIMARY KEY (OBJECT, SOURCE)
                 );
                 """),
         IMAGES("""
@@ -106,10 +148,10 @@ public interface Database {
                     NAME TEXT NOT NULL,
                     ALBUM INTEGER NOT NULL,
                     NUMBER INT NOT NULL,
-                    PATH TEXT UNIQUE NOT NULL,
+                    PATH TEXT NOT NULL,
                     CREATION TEXT NOT NULL,
                     FOREIGN KEY (ID) REFERENCES OBJECTS(ID) ON DELETE CASCADE,
-                    FOREIGN KEY (ID) REFERENCES ALBUMS(ID)
+                    FOREIGN KEY (ALBUM) REFERENCES ALBUMS(ID)
                 );
                 """),
         TRACK_ARTISTS("""

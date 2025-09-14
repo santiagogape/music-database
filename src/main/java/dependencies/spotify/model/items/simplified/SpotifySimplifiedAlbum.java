@@ -59,4 +59,24 @@ public class SpotifySimplifiedAlbum extends SpotifySimplifiedObject {
     public String getRelease() {
         return release_date;
     }
+
+    public String getRelease_date_precision() {
+        return release_date_precision;
+    }
+
+    public String getAlbum_type() {
+        return album_type;
+    }
+
+    public String getRelease_date() {
+        return release_date;
+    }
+
+    public int getTotal_tracks() {
+        return total_tracks;
+    }
+
+    public List<SpotifySimplifiedObject> getArtists() {
+        return artists;
+    }
 }

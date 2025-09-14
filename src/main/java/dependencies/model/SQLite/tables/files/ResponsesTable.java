@@ -1,6 +1,6 @@
 package dependencies.model.SQLite.tables.files;
 
-import app.model.items.FileReference;
+import app.model.items.Response;
 import app.model.utilities.database.Database;
 
 import java.sql.*;
@@ -9,15 +9,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static dependencies.model.SQLite.MusicSQLiteDatabase.LocalDateTimeFromString;
-import static dependencies.model.SQLite.MusicSQLiteDatabase.LocalDateTimeToString;
+import static Main.MainDatabase.LocalDateTimeFromString;
+import static Main.MainDatabase.LocalDateTimeToString;
 
-public class ResponsesTable implements Database.Table<FileReference> {
+public class ResponsesTable implements Database.UpdateTableIntID<Response> {
 
     static final String id = "ID";
     static final String name = "NAME";
     static final String path = "PATH";
     static final String creation = "CREATION";
+    static final String status = "STATUS";
+    
     private final Connection connection;
 
     public ResponsesTable(Connection connection) {
@@ -25,19 +27,30 @@ public class ResponsesTable implements Database.Table<FileReference> {
     }
 
     @Override
-    public FileReference insert(FileReference item) {
+    public Response insert(Response item) {
+
+        System.out.println(connection);
+
+
+        System.out.println("inserting: "+item.id()+"-:-"+item.name()+" directory:"+item.directory());
         String sql = """
         INSERT INTO RESPONSES(ID, NAME, PATH, CREATION)
         VALUES (?, ?, ?, ?)
-        """;
+        """; //checked, contained and added -> default 'false'
+        /*
+
+         */
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, item.id());
             stmt.setString(2, item.name());
-            stmt.setString(3, item.path());
+            stmt.setString(3, item.directory());
             stmt.setString(4, LocalDateTimeToString(item.creation()));
-
+            System.out.println("inserting");
+            System.out.println(stmt);
             int affected = stmt.executeUpdate();
+            System.out.println("executed insertion");
             if (affected == 0) {
+                System.err.println("not inserted");
                 throw new SQLException("Not inserted RESPONSES.");
             }
         } catch (SQLException e) {
@@ -58,19 +71,13 @@ public class ResponsesTable implements Database.Table<FileReference> {
     }
 
     @Override
-    @Deprecated
-    public FileReference update(Integer id, FileReference item) {
-        return null;
-    }
-
-    @Override
-    public Optional<FileReference> get(Integer id) {
+    public Optional<Response> get(Integer id) {
         String sql = "SELECT * FROM RESPONSES WHERE ID = ?";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, id);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
-                    return dataToFileReference(id, rs);
+                    return dataToResponse(id, rs);
                 }
             }
         } catch (SQLException e) {
@@ -80,19 +87,26 @@ public class ResponsesTable implements Database.Table<FileReference> {
         return Optional.empty();
     }
 
-    private static Optional<FileReference> dataToFileReference(Integer id, ResultSet rs) throws SQLException {
+    private static Optional<Response> dataToResponse(Integer id, ResultSet rs) throws SQLException {
         String name = rs.getString(ResponsesTable.name);
         String path = rs.getString(ResponsesTable.path);
         String creation = rs.getString(ResponsesTable.creation);
+        String status = rs.getString(ResponsesTable.status);
 
-        return Optional.of(new FileReference() {
+
+        return Optional.of(new Response() {
+            @Override
+            public Status status() {
+                return Status.valueOf(status);
+            }
+
             @Override
             public Integer id() {
                 return id;
             }
 
             @Override
-            public String path() {
+            public String directory() {
                 return path;
             }
 
@@ -113,18 +127,18 @@ public class ResponsesTable implements Database.Table<FileReference> {
         });
     }
 
-    private static Optional<FileReference> dataToFileReference(ResultSet rs) throws SQLException {
+    private static Optional<Response> dataToResponse(ResultSet rs) throws SQLException {
         int id = rs.getInt(ResponsesTable.id);
-        return dataToFileReference(id, rs);
+        return dataToResponse(id, rs);
     }
 
     @Override
-    public List<FileReference> query(String sql) {
-        List<FileReference> results = new ArrayList<>();
+    public List<Response> query(String sql) {
+        List<Response> results = new ArrayList<>();
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
-                    Optional<FileReference> file = dataToFileReference(rs);
+                    Optional<Response> file = dataToResponse(rs);
                     file.ifPresent(results::add);
                 }
             }
@@ -135,19 +149,19 @@ public class ResponsesTable implements Database.Table<FileReference> {
     }
 
     @Override
-    public List<FileReference> all() {
+    public List<Response> all() {
         return query("SELECT * FROM RESPONSES");
     }
 
     @Override
-    public List<FileReference> allWithOffset(Integer offset) {
+    public List<Response> allWithOffset(Integer offset) {
         String sql = "SELECT * FROM RESPONSES LIMIT -1 OFFSET ?";
-        List<FileReference> results = new ArrayList<>();
+        List<Response> results = new ArrayList<>();
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, offset);
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
-                    Optional<FileReference> file = dataToFileReference(rs);
+                    Optional<Response> file = dataToResponse(rs);
                     file.ifPresent(results::add);
                 }
             }
@@ -155,5 +169,21 @@ public class ResponsesTable implements Database.Table<FileReference> {
             throw new RuntimeException(e);
         }
         return results;
+    }
+
+    @Override
+    public Response update(Response item) {
+        String sql = """
+                UPDATE RESPONSES SET STATUS = ? WHERE id = ?
+                """;
+
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, item.status().name());
+            pstmt.setInt(2, item.id());
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return item;
     }
 }

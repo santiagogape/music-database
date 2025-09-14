@@ -61,12 +61,17 @@ public class FileToModel {
     public static Response FileToResponse(FileSong key, File value) {
         return new Response() {
             @Override
+            public Status status() {
+                return Status.not_checked;
+            }
+
+            @Override
             public Integer id() {
                 return key.id();
             }
 
             @Override
-            public String path() {
+            public String directory() {
                 try {
                     return value.getCanonicalPath();
                 } catch (IOException e) {

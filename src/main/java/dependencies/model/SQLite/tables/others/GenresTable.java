@@ -9,7 +9,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 public class GenresTable implements Database.Table<Genre> {
 
@@ -37,24 +36,6 @@ public class GenresTable implements Database.Table<Genre> {
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    @Override
-    @Deprecated
-    public void delete(Integer id) {
-        throw new UnsupportedOperationException("GENRES has no numeric ID. Use deleteByName instead.");
-    }
-
-    @Override
-    @Deprecated
-    public Genre update(Integer id, Genre item) {
-        return null;
-    }
-
-    @Override
-    @Deprecated
-    public Optional<Genre> get(Integer id) {
-        throw new UnsupportedOperationException("GENRES has no numeric ID. Use getByName instead.");
     }
 
     private static Genre dataToGenre(ResultSet rs) throws SQLException {

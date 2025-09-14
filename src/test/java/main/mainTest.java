@@ -2,7 +2,7 @@ package main;
 
 import app.control.TokenManager;
 import app.control.api.BatchTrackSearch;
-import app.control.api.responsesObserver;
+import app.control.api.ResponsesObserver;
 import app.control.files.actors.JsonWriter;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -72,13 +72,13 @@ public class mainTest {
 
     }
 
-    private static responsesObserver createObserver() {
-        return new responsesObserver() {
+    private static ResponsesObserver createObserver() {
+        return new ResponsesObserver() {
             int i = 0;
             @Override
-            public void notify(String query, String response) {
+            public void notify(String query, String responseBody) {
                 System.out.println("notified");
-                SpotifyTrackSearchResponse tracksResult = gson.fromJson(response, SpotifyTrackSearchResponse.class);
+                SpotifyTrackSearchResponse tracksResult = gson.fromJson(responseBody, SpotifyTrackSearchResponse.class);
                 System.out.println("as object:" + tracksResult);
                 String s = jsonPathFrom(i+" query");
                 i++;

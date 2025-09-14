@@ -23,7 +23,6 @@ public class Chronometer {
         this.seconds = 0;
         this.timer = createTimer(seconds);
         observers = new ArrayList<>();
-        timer.cancel();
     }
 
     public void registerListener(ChronometerObserver observer){

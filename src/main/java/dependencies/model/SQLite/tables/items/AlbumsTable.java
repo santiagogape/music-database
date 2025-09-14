@@ -12,10 +12,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static dependencies.model.SQLite.MusicSQLiteDatabase.LocalDateTimeFromString;
-import static dependencies.model.SQLite.MusicSQLiteDatabase.LocalDateTimeToString;
+import static Main.MainDatabase.LocalDateTimeFromString;
+import static Main.MainDatabase.LocalDateTimeToString;
 
-public class AlbumsTable implements Database.Table<Album> {
+public class AlbumsTable implements Database.TableIntID<Album> {
 
     private final Connection connection;
 
@@ -58,12 +58,6 @@ public class AlbumsTable implements Database.Table<Album> {
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    @Override
-    @Deprecated
-    public Album update(Integer id, Album item) {
-        return null;
     }
 
     private static Album dataToAlbum(ResultSet rs) throws SQLException {

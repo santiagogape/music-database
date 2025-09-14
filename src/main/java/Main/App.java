@@ -1,6 +1,5 @@
 package Main;
 
-import Main.Database.MainDatabase;
 import Main.configurations.UserConfig;
 import app.control.TokenManager;
 import app.control.files.actors.JsonWriter;
