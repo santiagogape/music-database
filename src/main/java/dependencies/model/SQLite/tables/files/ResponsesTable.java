@@ -121,6 +121,11 @@ public class ResponsesTable implements Database.UpdateTableIntID<Response> {
             }
 
             @Override
+            public String nameWithExtension() {
+                return name()+".json";
+            }
+
+            @Override
             public ItemType type() {
                 return ItemType.response;
             }

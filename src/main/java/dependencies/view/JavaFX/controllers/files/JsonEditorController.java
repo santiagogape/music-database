@@ -1,7 +1,7 @@
 package dependencies.view.JavaFX.controllers.files;
 
 import com.google.gson.Gson;
-import dependencies.spotify.model.items.SpotifyTrackSearchResponse;
+import dependencies.model.spotify.items.SpotifyTrackSearchResponse;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.TextArea;

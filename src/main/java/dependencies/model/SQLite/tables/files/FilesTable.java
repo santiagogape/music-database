@@ -114,6 +114,11 @@ public class FilesTable implements Database.UpdateTableIntID<FileSong> {
             }
 
             @Override
+            public String nameWithExtension() {
+                return item.nameWithExtension();
+            }
+
+            @Override
             public ItemType type() {
                 return item.type();
             }
@@ -196,6 +201,11 @@ public class FilesTable implements Database.UpdateTableIntID<FileSong> {
                     @Override
                     public String name() {
                         return name;
+                    }
+
+                    @Override
+                    public String nameWithExtension() {
+                        return name()+".mp3";
                     }
 
                     @Override

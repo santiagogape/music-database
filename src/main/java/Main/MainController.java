@@ -1,7 +1,7 @@
 package Main;
 
 import app.control.TokenManager;
-import app.control.files.actors.MP3Processor;
+import app.control.files.actors.mp3Metadata.MP3Processor;
 import app.control.files.listener.FileSongProcessor;
 import app.model.items.FileSong;
 

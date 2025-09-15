@@ -1,6 +1,6 @@
 package app.control;
 
-import dependencies.spotify.model.auth.AccessToken;
+import dependencies.model.spotify.auth.AccessToken;
 
 public interface TokenManager {
     void start();

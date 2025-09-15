@@ -130,6 +130,11 @@ public class TracksTable implements Database.TableIntID<Track> {
             }
 
             @Override
+            public String nameWithExtension() {
+                return name()+".mp3";
+            }
+
+            @Override
             public ItemType type() {
                 return ItemType.track;
             }

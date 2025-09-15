@@ -93,6 +93,11 @@ public class FileToModel {
             public LocalDateTime creation() {
                 return LocalDateTime.now();
             }
+
+            @Override
+            public String nameWithExtension() {
+                return name()+".json";
+            }
         };
     }
 

@@ -49,8 +49,6 @@ public class FilesResponsesRepository {
         return responseMap;
     }
 
-
-
     public FilesResponsesRepository(
             Map<String,Map<Integer,FileSong>> files,
             Map<String,Map<Response.Status,Map<Integer,Response>>> responses,
