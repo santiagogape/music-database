@@ -95,7 +95,7 @@ public class ImagesTable implements Database.TableIntID<ItemImage> {
 
     @Override
     public Optional<ItemImage> get(Integer id) {
-        String sql = "SELECT * FROM IMAGES WHERE ID = ?";
+        String sql = "SELECT * FROM IMAGES WHERE OBJECT = ?";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, id);
             try (ResultSet rs = stmt.executeQuery()) {

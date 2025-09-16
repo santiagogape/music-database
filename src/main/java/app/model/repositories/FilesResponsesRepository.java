@@ -14,28 +14,19 @@ public class FilesResponsesRepository {
 
 
     private final Set<Integer> fromAnotherSource;
-
     private final Map<String,Map<Integer,FileSong>> files;
     private final Map<String,Map<Response.Status,Map<Integer,Response>>> responses;
 
     public static FilesResponsesRepository from(List<FileSong> files, List<Response> responses, Set<Integer> fromAnotherSource){
-        Map<String, Map<Integer, FileSong>> collect = files.stream().collect(groupingBy(FileSong::directory, Collectors.toMap(FileSong::id, f -> f)));
-        return from(collect, responses, fromAnotherSource);
+        Map<String, Map<Integer, FileSong>> map = fileSongListToMapByDirectory(files);
+        return new FilesResponsesRepository(map, responseListToMapByDirectory(map,responses), fromAnotherSource);
     }
 
-    private static FilesResponsesRepository from(Map<String, Map<Integer, FileSong>> collect, List<Response> responses, Set<Integer> fromAnotherSource) {
-        return new FilesResponsesRepository(
-                collect,
-                responseListToMapByDirectory(collect,responses),
-                fromAnotherSource
-        );
-    }
-
-    public static Map<String,Map<Integer,FileSong>> fileSongListToMapByDirectory(List<FileSong> fileSongs){
+    private static Map<String,Map<Integer,FileSong>> fileSongListToMapByDirectory(List<FileSong> fileSongs){
         return fileSongs.stream().collect(groupingBy(FileReference::directory,Collectors.toMap(SimpleItem::id,f->f)));
     }
 
-    public static Map<String, Map<Response.Status, Map<Integer, Response>>> responseListToMapByDirectory(Map<String, Map<Integer, FileSong>> fileSongs, List<Response> responses){
+    private static Map<String, Map<Response.Status, Map<Integer, Response>>> responseListToMapByDirectory(Map<String, Map<Integer, FileSong>> fileSongs, List<Response> responses){
         Map<String,Map<Response.Status,Map<Integer,Response>>> responseMap = new HashMap<>();
 
         fileSongs.forEach((directory,map)->{
@@ -45,7 +36,6 @@ public class FilesResponsesRepository {
                             .collect(Collectors.groupingBy(Response::status,Collectors.toMap(SimpleItem::id,r->r)))
             );
         });
-
         return responseMap;
     }
 
@@ -56,13 +46,7 @@ public class FilesResponsesRepository {
         this.files = files;
         this.responses = responses;
         this.fromAnotherSource = fromAnotherSource;
-    }
-
-    public Map<String,Map<Integer,FileSong>> getFiles() {
-        return files;
-    }
-    public List<FileSong> fileSongList() {
-        return fileSongListOf(files);
+        checkStructure();
     }
 
     private List<FileSong> fileSongListOf(Map<String, Map<Integer, FileSong>> map) {
@@ -72,29 +56,13 @@ public class FilesResponsesRepository {
                 .toList();
     }
 
-
-    public Map<String,Map<Response.Status,Map<Integer,Response>>> getResponses() {
-        return responses;
-    }
-    public List<Response> responseList(){
-        return responseListOf(responses);
-    }
-
-    private List<Response> responseListOf(Map<String, Map<Response.Status, Map<Integer, Response>>> map) {
-        return map.values()
-                .stream()
-                .flatMap(f->f.values().stream())
-                .flatMap(f->f.values().stream())
-                .toList();
-    }
-
-    public Optional<FileSong> getFileSongFromResponse(Response response){
+    private Optional<FileSong> getFileSongFromResponse(Response response){
         return files.values().stream()
                 .filter(integerFileSongMap -> integerFileSongMap.containsKey(response.id()))
                 .map(integerFileSongMap -> integerFileSongMap.get(response.id())).findFirst();
     }
 
-    public Optional<Response> getResponseFromFileSong(FileSong file) {
+    private Optional<Response> getResponseFromFileSong(FileSong file) {
         return responses.values().stream()
                 .flatMap(f->f.values().stream())
                 .filter(f-> f.containsKey(file.id()))
@@ -102,30 +70,8 @@ public class FilesResponsesRepository {
                 .findFirst();
     }
     
-    public boolean isFromAnotherSource(Integer id){
+    private boolean isFromAnotherSource(Integer id){
         return fromAnotherSource.contains(id);
-    }
-
-    public Set<Integer> getFromAnotherSource() {
-        return fromAnotherSource;
-    }
-
-    public Map<FileSong,Response> toMap(){
-        return files.entrySet().stream()
-                .flatMap(e->e.getValue().entrySet().stream())
-                .map(f-> Map.entry(f.getValue(), getResponseFromFileSong(f.getValue())))
-                .filter(e->e.getValue().isPresent())
-                .collect(Collectors.toMap(Map.Entry::getKey, e->e.getValue().get()));
-    }
-
-    public FilesResponsesRepository filterByDirectory(String directory){
-        Map<String, Map<Integer, FileSong>> map = new HashMap<>();
-        files.entrySet().stream()
-                .filter(f -> Objects.equals(f.getKey(), directory))
-                .findFirst().ifPresent(e->map.put(e.getKey(),e.getValue()));
-        return new FilesResponsesRepository(map,
-                mapResponseFromMapFileSong(map),
-                fileSongListOf(map).stream().map(SimpleItem::id).filter(this::isFromAnotherSource).collect(Collectors.toSet()));
     }
 
     private Map<String, Map<Response.Status, Map<Integer, Response>>> mapResponseFromMapFileSong(Map<String, Map<Integer, FileSong>> map) {
@@ -148,37 +94,100 @@ public class FilesResponsesRepository {
         return  fileSongListOf(files).stream().filter(f -> getResponseFromFileSong(f).isEmpty()).collect(Collectors.toList());
     }
 
+    public FilesResponsesRepository filterByDirectory(String directory){
+        Map<String, Map<Integer, FileSong>> filteredFiles = new HashMap<>();
+        Map<String,Map<Response.Status,Map<Integer,Response>>> filteredResponses = new HashMap<>();
+        filteredFiles.put(directory,files.get(directory));
+        filteredResponses.put(directory,responses.get(directory));
+        return new FilesResponsesRepository(filteredFiles,
+                filteredResponses,
+                fileSongListOf(filteredFiles).stream().map(SimpleItem::id).filter(this::isFromAnotherSource).collect(Collectors.toSet()));
+    }
 
     public FilesResponsesRepository filterByResponseStatus(Response.Status status){
-        Map<String,Map<Response.Status,Map<Integer,Response>>> map = new HashMap<>();
+        Map<String,Map<Integer,FileSong>> filteredFiles = new HashMap<>();
+        Map<String,Map<Response.Status,Map<Integer,Response>>> filteredResponses = new HashMap<>();
+        Set<Integer> filteredFromAnotherSource = new HashSet<>();
 
         responses.forEach((directory, mapByStatus)->{
-            if (mapByStatus.containsKey(status)) {
-                map.put(directory,new HashMap<>());
-                map.get(directory).put(status,mapByStatus.get(status));
-            }
+            filteredResponses.put(directory,new HashMap<>());
+            filteredResponses.get(directory).put(status,mapByStatus.get(status));
+            filteredFiles.put(directory, new HashMap<>());
+            mapByStatus.entrySet().stream()
+                    .flatMap(e->e.getValue().values().stream().map(SimpleItem::id))
+                    .peek(i-> {if (isFromAnotherSource(i)) filteredFromAnotherSource.add(i);})
+                    .forEach(i->filteredFiles.get(directory).put(i,files.get(directory).get(i)));
         });
 
-        return new FilesResponsesRepository(
-                responseListOf(map).stream().map(this::getFileSongFromResponse)
-                        .filter(Optional::isPresent).map(Optional::get)
-                        .collect(Collectors.groupingBy(FileSong::directory,Collectors.toMap(FileSong::id,f->f))),
-                map,
-                responseListOf(map).stream().map(SimpleItem::id).filter(this::isFromAnotherSource).collect(Collectors.toSet())
-        );
+        return new FilesResponsesRepository(filteredFiles,filteredResponses,filteredFromAnotherSource);
     }
 
     public FilesResponsesRepository filterByResponseFromAnotherSource(){
 
-        List<Response> responseList = responseListOf(responses).stream().filter(r -> isFromAnotherSource(r.id())).toList();
+        Map<String,Map<Integer,FileSong>> filteredFiles = new HashMap<>();
+        Map<String,Map<Response.Status,Map<Integer,Response>>> filteredResponses = new HashMap<>();
 
-        Map<String, Map<Integer, FileSong>> fileSongs = responseList.stream().map(this::getFileSongFromResponse)
-                .filter(Optional::isPresent).map(Optional::get)
-                .collect(Collectors.groupingBy(FileSong::directory, Collectors.toMap(FileSong::id, f -> f)));
+        files.forEach((directory,map)->{
+            map.entrySet().stream()
+                    .filter(e -> isFromAnotherSource(e.getKey()))
+                    .findFirst()
+                    .ifPresent(e->{
+                        filteredFiles.put(directory, new HashMap<>());
+                        filteredResponses.put(directory, new HashMap<>());
+                        responses.get(directory).forEach((status, mapByStatus)->{
+                            if (mapByStatus.containsKey(e.getKey())) filteredResponses.get(directory).put(status,new HashMap<>());
+                        });
+                        });
+        });
+        fromAnotherSource.forEach(i->{
+            files.forEach((directory,mapByDirectory)->{
+                if (mapByDirectory.containsKey(i)) filteredFiles.get(directory).put(i,mapByDirectory.get(i));
+            });
+            responses.forEach((directory,statusMap)->{
+                statusMap.forEach((status,map)->{
+                    if (map.containsKey(i)) filteredResponses.get(directory).get(status).put(i, map.get(i));
+                });
+            });
+        });
 
-        return from(fileSongs,responseList,responseList.stream().map(SimpleItem::id).collect(Collectors.toSet()));
+        return new FilesResponsesRepository(filteredFiles,filteredResponses,fromAnotherSource);
 
     }
-    
 
+    public Map<FileSong,Response> toMap(){
+        return files.entrySet().stream()
+                .flatMap(e->e.getValue().entrySet().stream())
+                .map(f-> Map.entry(f.getValue(), getResponseFromFileSong(f.getValue())))
+                .filter(e->e.getValue().isPresent())
+                .collect(Collectors.toMap(Map.Entry::getKey, e->e.getValue().get()));
+    }
+
+
+    public void addFile(String directory, FileSong fileSong){
+        if (!files.containsKey(directory)) {
+            files.put(directory,new HashMap<>());
+            responses.put(directory,new HashMap<>());
+            for (Response.Status value : Response.Status.values()) {
+                responses.get(directory).put(value,new HashMap<>());
+            }
+        }
+        files.get(directory).put(fileSong.id(),fileSong);
+    }
+
+    public void addResponse(FileSong fileSong, Response response){
+        responses.get(fileSong.directory()).get(response.status()).put(response.id(),response);
+    }
+
+    public void updateResponse(FileSong fileSong, Response.Status previous, Response response){
+        responses.get(fileSong.directory()).get(previous).remove(response.id());
+        responses.get(fileSong.directory()).get(response.status()).put(response.id(),response);
+    }
+
+    private void checkStructure(){
+        responses.forEach((directory, statusMap)-> {
+            for (Response.Status value : Response.Status.values()) {
+                responses.get(directory).putIfAbsent(value,new HashMap<>());
+            }
+        });
+    }
 }

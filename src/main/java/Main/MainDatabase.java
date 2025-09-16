@@ -23,7 +23,7 @@ public class MainDatabase {
 
     public static DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private final Database database;
-    private final Database.UpdateTableIntID<FileSong> filesTable;
+    private final Database.TableIntID<FileSong> filesTable;
     private final Database.TableIntID<ItemImage> imagesTable;
     private final Database.UpdateTableIntID<Response> responsesTable;
     private final Database.TableIntID<Integer> sourcesTable;
@@ -83,7 +83,7 @@ public class MainDatabase {
         return database;
     }
 
-    public Database.UpdateTableIntID<FileSong> getFilesTable() {
+    public Database.TableIntID<FileSong> getFilesTable() {
         return filesTable;
     }
 

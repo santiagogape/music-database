@@ -1,7 +1,10 @@
 package app.control.files.actors;
 
 import app.control.files.actors.mp3Metadata.MP3Processor;
+import app.model.items.FileSong;
 import app.model.resources.FilesFromDirectory;
+
+import java.util.List;
 
 public class TempFolderReader {
 
@@ -14,8 +17,13 @@ public class TempFolderReader {
     }
 
     public FilesFromDirectory readTemp(){
-        return new FilesFromDirectory(mover.thisYearFolder().getFileName().toString(),true,
-                mover.moveToThisYearsFolder(reader.process(mover.thisYearFolder()))
-                );
+        System.out.println("reading from temp");
+        System.out.println("to:" +mover.thisYearFolder().getFileName().toString());
+        System.out.println(mover.tempFolder());
+        List<FileSong> process = reader.process(mover.tempFolder());
+        System.out.println("processed: "+process);
+        List<FileSong> fileSongs = mover.moveToThisYearsFolder(process);
+        System.out.println("moved:"+fileSongs);
+        return new FilesFromDirectory(mover.thisYearFolder().getFileName().toString(),true, fileSongs);
     }
 }

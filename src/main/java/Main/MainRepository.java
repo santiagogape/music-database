@@ -5,7 +5,10 @@ import app.model.repositories.GenresRepository;
 import app.model.repositories.ImagesRepository;
 import app.model.repositories.ItemsRepository;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.SortedSet;
 
 public class MainRepository {
 
@@ -16,6 +19,17 @@ public class MainRepository {
 
     public MainRepository() {}
 
+    public MainRepository(FilesResponsesRepository filesResponsesRepository,
+                          ItemsRepository itemsRepository,
+                          GenresRepository genresRepository,
+                          ImagesRepository imagesRepository,
+                          Set<String> directories) {
+        this.filesResponsesRepository = filesResponsesRepository;
+        this.itemsRepository = itemsRepository;
+        this.genresRepository = genresRepository;
+        this.imagesRepository = imagesRepository;
+        this.directories = directories;
+    }
 
     public ImagesRepository getImagesRepository() {
         return imagesRepository;
@@ -25,7 +39,7 @@ public class MainRepository {
         this.imagesRepository = imagesRepository;
     }
 
-    private List<String> directories;
+    private Set<String> directories;
 
     public FilesResponsesRepository getFilesResponsesRepository() {
         return filesResponsesRepository;
@@ -51,12 +65,12 @@ public class MainRepository {
         this.genresRepository = genresRepository;
     }
 
-    public List<String> getDirectories() {
+    public Set<String> getDirectories() {
         return directories;
     }
 
     public void setDirectories(List<String> directories) {
-        this.directories = directories;
+        this.directories = new HashSet<>(directories);
     }
 
 

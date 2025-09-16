@@ -33,7 +33,7 @@ public class WebImagesTable implements Database.TableIntID<ImageRef.ItemImageRef
 
     @Override
     public Optional<ImageRef.ItemImageRef> get(Integer id) {
-        String sql = "SELECT * FROM WEB_IMAGES WHERE ID = ?";
+        String sql = "SELECT * FROM WEB_IMAGES WHERE OBJECT = ?";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, id);
             try (ResultSet rs = stmt.executeQuery()) {
@@ -67,7 +67,7 @@ public class WebImagesTable implements Database.TableIntID<ImageRef.ItemImageRef
             stmt.setInt(4, item.height());
             int affected = stmt.executeUpdate();
             if (affected == 0) {
-                throw new SQLException("Not inserted IMAGES.");
+                throw new SQLException("Not inserted WEB_IMAGES.");
             }
             return item;
         } catch (SQLException e) {

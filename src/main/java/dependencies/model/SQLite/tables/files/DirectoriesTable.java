@@ -32,7 +32,7 @@ public class DirectoriesTable implements Database.TableStringID<String> {
 
     @Override
     public void delete(String id) {
-        String sql = "DELETE FROM DIRECTORIES WHERE ID = ?";
+        String sql = "DELETE FROM DIRECTORIES WHERE NAME = ?";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setString(1, id);
             if (stmt.executeUpdate() == 0) throw new SQLException(id +" not in Files table"); // true si borró alguna fila
@@ -43,11 +43,13 @@ public class DirectoriesTable implements Database.TableStringID<String> {
 
     @Override
     public Optional<String> get(String id) {
-        String sql = "SELECT * FROM FILES WHERE ID = ?";
+        String sql = "SELECT NAME FROM DIRECTORIES WHERE NAME = ?";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            System.out.println(id.equals("music 2025")+" id?");
             stmt.setString(1, id);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
+                    System.out.println("rs");
                     return Optional.of(rs.getString(1));
                 }
             }

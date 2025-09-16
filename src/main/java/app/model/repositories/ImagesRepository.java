@@ -4,6 +4,7 @@ import app.model.items.ImageRef;
 import app.model.items.ItemImage;
 import app.model.items.SimpleItem;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -20,12 +21,14 @@ public class ImagesRepository {
         this.web = web.stream().collect(Collectors.groupingBy(ImageRef.ItemImageRef::item));
     }
 
-    public Map<Integer, List<ItemImage>> getLocal() {
-        return local;
+    public void addWebImageTo(SimpleItem item, ImageRef.ItemImageRef ref){
+        web.computeIfAbsent(item.id(), ArrayList::new);
+        web.get(item.id()).add(ref);
     }
 
-    public Map<Integer, List<ImageRef.ItemImageRef>> getWeb() {
-        return web;
+    public void addLocalImageTo(SimpleItem item, ItemImage ref){
+        local.computeIfAbsent(item.id(), ArrayList::new);
+        local.get(item.id()).add(ref);
     }
 
     public Optional<List<ItemImage>> getLocalImagesFromItem(SimpleItem item){

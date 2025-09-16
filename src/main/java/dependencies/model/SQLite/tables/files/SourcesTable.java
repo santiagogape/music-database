@@ -21,7 +21,7 @@ public class SourcesTable implements Database.TableIntID<Integer> {
     @Override
     public Integer insert(Integer item) {
         String sql = """
-        INSERT INTO DIRECTORIES(NAME)
+        INSERT INTO SOURCES(ID)
         VALUES (?)
         """;
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
@@ -35,10 +35,10 @@ public class SourcesTable implements Database.TableIntID<Integer> {
 
     @Override
     public void delete(Integer id) {
-        String sql = "DELETE FROM DIRECTORIES WHERE ID = ?";
+        String sql = "DELETE FROM SOURCES WHERE ID = ?";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, id);
-            if (stmt.executeUpdate() == 0) throw new SQLException(id +" not in Files table"); // true si borró alguna fila
+            if (stmt.executeUpdate() == 0) throw new SQLException(id +" not in SOURCES table");
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -46,7 +46,7 @@ public class SourcesTable implements Database.TableIntID<Integer> {
 
     @Override
     public Optional<Integer> get(Integer id) {
-        String sql = "SELECT * FROM FILES WHERE ID = ?";
+        String sql = "SELECT * FROM SOURCES WHERE ID = ?";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, id);
             try (ResultSet rs = stmt.executeQuery()) {
@@ -78,12 +78,12 @@ public class SourcesTable implements Database.TableIntID<Integer> {
 
     @Override
     public List<Integer> all() {
-        return query("SELECT * FROM DIRECTORIES");
+        return query("SELECT * FROM SOURCES");
     }
 
     @Override
     public List<Integer> allWithOffset(Integer offset) {
-        String sql = "SELECT * FROM DIRECTORIES LIMIT -1 OFFSET ?";
+        String sql = "SELECT * FROM SOURCES LIMIT -1 OFFSET ?";
         List<Integer> results = new ArrayList<>();
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, offset);

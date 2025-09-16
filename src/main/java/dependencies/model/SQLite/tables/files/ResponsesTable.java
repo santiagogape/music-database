@@ -179,7 +179,7 @@ public class ResponsesTable implements Database.UpdateTableIntID<Response> {
     @Override
     public Response update(Response item) {
         String sql = """
-                UPDATE RESPONSES SET STATUS = ? WHERE id = ?
+                UPDATE RESPONSES SET STATUS = ? WHERE ID = ?
                 """;
 
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {

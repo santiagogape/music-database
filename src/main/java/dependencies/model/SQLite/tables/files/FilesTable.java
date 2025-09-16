@@ -13,7 +13,7 @@ import static Main.MainDatabase.LocalDateTimeFromString;
 import static Main.MainDatabase.LocalDateTimeToString;
 
 
-public class FilesTable implements Database.UpdateTableIntID<FileSong> {
+public class FilesTable implements Database.TableIntID<FileSong> {
 
     static final String id = "ID";
     static final String name = "NAME";
@@ -255,22 +255,5 @@ public class FilesTable implements Database.UpdateTableIntID<FileSong> {
             throw new RuntimeException(e);
         }
         return results;
-    }
-
-    @Override
-    public FileSong update(FileSong item) {
-        String sql = """
-                UPDATE RESPONSES SET NAME = ?,
-                 DIRECTORY = ? WHERE id = ?""";
-
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setString(1, item.name());
-            pstmt.setString(2, item.directory());
-            pstmt.setInt(3, item.id());
-            pstmt.executeUpdate();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-        return item;
     }
 }

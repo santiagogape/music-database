@@ -14,7 +14,7 @@ public class ItemsRepository {
     private final Map<Integer, List<Integer>> artistsAlbums;
     private final Map<Integer, List<Integer>> albumsTracks;
     private final Map<Integer, List<Integer>> trackArtists;
-    private final Map<Database.ItemSource, Map<SimpleItem.ItemType, List<SimpleItem.ItemUri>>> items;
+    private final Map<Database.ItemSource, Map<SimpleItem.ItemType, Map<String, SimpleItem.ItemUri>>> items;
 
     public ItemsRepository(Map<Integer, Artist> artists,
                            Map<Integer, Album> albums,
@@ -22,7 +22,7 @@ public class ItemsRepository {
                            Map<Integer, List<Integer>> artistsAlbums,
                            Map<Integer, List<Integer>> albumsTracks,
                            Map<Integer, List<Integer>> trackArtists,
-                           Map<Database.ItemSource, Map<SimpleItem.ItemType, List<SimpleItem.ItemUri>>> items) {
+                           Map<Database.ItemSource, Map<SimpleItem.ItemType, Map<String, SimpleItem.ItemUri>>> items) {
         this.artists = artists;
         this.albums =  albums;
         this.tracks =  tracks;
@@ -46,66 +46,49 @@ public class ItemsRepository {
     }
 
     public Optional<Integer> getItemUriID(Database.ItemSource source, SimpleItem.ItemType type, String sourceId) {
-        if (items.get(source) == null || items.get(source).get(type) == null) return Optional.empty();
-        return items.get(source).get(type).stream()
-                .filter(i->  i.sourceId().equals(sourceId))
-                .map(SimpleItem.ItemUri::id)
-                .findFirst();
+        if (items.get(source) == null ||
+                items.get(source).get(type) == null ||
+                !items.get(source).get(type).containsKey(sourceId)
+        ) return Optional.empty();
+        return Optional.of(items.get(source).get(type).get(sourceId).id());
     }
 
-
-    public Map<Integer, Artist> getArtists() {
-        return artists;
+    public void addArtistsAlbum(Integer artistId, Integer albumId){
+        artistsAlbums.get(artistId).add(albumId);
     }
 
-    public Map<Integer, Album> getAlbums() {
-        return albums;
+    public void addAlbumTrack(Integer albumId, Integer trackId){
+        albumsTracks.get(albumId).add(trackId);
     }
 
-    public Map<Integer, Track> getTracks() {
-        return tracks;
+    public void addTrackArtist(Integer trackId, Integer artistId){
+        trackArtists.get(trackId).add(artistId);
     }
 
-    public Map<Integer, List<Integer>> getArtistsAlbums() {
-        return artistsAlbums;
+    public void addTrack(Track track){
+        if (!tracks.containsKey(track.id())) {
+            tracks.put(track.id(),track);
+            trackArtists.put(track.id(),new ArrayList<>());
+        }
     }
 
-    public Map<Integer, List<Integer>> getAlbumsTracks() {
-        return albumsTracks;
+    public void addAlbum(Album album){
+        if (!albums.containsKey(album.id())) {
+            albums.put(album.id(),album);
+            albumsTracks.put(album.id(),new ArrayList<>());
+        }
     }
 
-    public Map<Integer, List<Integer>> getTrackArtists() {
-        return trackArtists;
+    public void addArtist(Artist artist){
+        if (!artists.containsKey(artist.id())) {
+            artists.put(artist.id(),artist);
+            artistsAlbums.put(artist.id(),new ArrayList<>());
+        }
     }
 
-    public Map<Database.ItemSource, Map<SimpleItem.ItemType, List<SimpleItem.ItemUri>>> getItems() {
-        return items;
-    }
-
-    public List<Album> artistAlbums(Artist artist){
-        return artistsAlbums.get(artist.id()).stream().map(albums::get).toList();
-    }
-
-    public List<Track> albumTracks(Album album){
-        return albumsTracks.get(album.id()).stream().map(tracks::get).toList();
-    }
-
-    public Album trackAlbum(Track track){
-        return albumsTracks.entrySet().stream()
-                .filter(e -> e.getValue().contains(track.id()))
-                .map(Map.Entry::getKey).map(albums::get).findFirst()
-                .orElseThrow(() -> new NoSuchElementException("no album"));
-    }
-
-    public List<Artist> trackArtists(Track track){
-        return trackArtists.entrySet().stream()
-                .filter(e -> e.getValue().contains(track.id()))
-                .map(Map.Entry::getKey).map(artists::get).toList();
-    }
-
-    public List<Artist> albumArtists(Album album) {
-        return artistsAlbums.entrySet().stream()
-                .filter(e -> e.getValue().contains(album.id()))
-                .map(Map.Entry::getKey).map(artists::get).toList();
+    public void addItemUri(SimpleItem.ItemUri itemUri){
+        items.computeIfAbsent(itemUri.source(), _ -> new HashMap<>());
+        items.get(itemUri.source()).computeIfAbsent(itemUri.type(),_ -> new HashMap<>());
+        items.get(itemUri.source()).get(itemUri.type()).put(itemUri.sourceId(),itemUri);
     }
 }

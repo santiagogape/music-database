@@ -11,6 +11,7 @@ import app.control.files.actors.*;
 import app.control.items.ItemIDUpdater;
 import app.control.items.ResponseCreator;
 import app.control.items.ResponseStatusUpdater;
+import app.model.resources.FileSongStatusToAddedResponse;
 import app.model.resources.FilesFromDirectory;
 import dependencies.control.GsonJsonProcessor;
 import app.control.files.actors.mp3Metadata.MP3Processor;
@@ -24,7 +25,6 @@ import app.model.utilities.database.Database;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import dependencies.control.GsonJsonWriter;
 import dependencies.control.JAudioTaggerMP3MetadataReader;
 import dependencies.model.SQLite.MusicSQLiteDatabase;
 import dependencies.control.spotify.SpotifyTokenManager;
@@ -52,16 +52,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static app.model.items.SimpleItem.ItemType.response;
 import static java.lang.Thread.sleep;
-import static java.time.LocalDateTime.now;
 import static java.util.stream.Collectors.*;
 
 public class FlowTest {
@@ -70,7 +67,6 @@ public class FlowTest {
     static final Scanner SCANNER = new Scanner(System.in);
     static final HttpClient CLIENT = HttpClient.newHttpClient();
     static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    static final JsonWriter JSON_WRITER = new GsonJsonWriter(GSON);
     static final CountDownLatch COUNT_DOWN_LATCH_FOR_FINISHED_FLOWS = new CountDownLatch(1);
 
 
@@ -92,7 +88,7 @@ public class FlowTest {
 
     //Repositories
     static final MainRepository REPOSITORY = new MainRepository();
-    public static final Path THIS_YEAR_FOLDER = existsOrCreateFolder("music " + LocalDate.now().getYear());
+    public static final Path THIS_YEAR_FOLDER = DB_FOLDER.resolve("music " + LocalDate.now().getYear());
 
     //CONTROL ACTORS
     static final JsonProcessor JSON_PROCESSOR = new GsonJsonProcessor(GSON);
@@ -105,10 +101,6 @@ public class FlowTest {
 
 
     // utility methods
-    private static String jsonPathFrom(String query) {
-        //todo -> FileSong ends With .mp3, Response with .json so -> correct that in the name of Response
-        return RESPONSES_FOLDER.resolve(query+".json").toString();
-    }
 
     private static InputStreamReader getInputStreamReaderFromResources(String path) {
         System.out.println("inputStream reader from "+path);
@@ -136,9 +128,18 @@ public class FlowTest {
                 throw new RuntimeException(e);
             }
         }
-        if (resolve.equals(TEMP_FOLDER) ||
-                resolve.equals(RESPONSES_FOLDER) ) return resolve;
-        if (DATABASE.getDirectoriesTable().get(thisYear).isEmpty()) addNewFolder(thisYear);
+        System.out.println(thisYear+" exits");
+        if (resolve.getFileName().equals(Path.of("temp")) ||
+                resolve.getFileName().equals(Path.of("responses")) ) return resolve;
+        System.out.println("not temp or responses");
+        System.out.println(thisYear.equals("music 2025"));
+        System.out.println("with database?");
+        System.out.println(DATABASE.getDirectoriesTable().get(thisYear).get());
+        System.out.println(DATABASE.getDirectoriesTable().get(thisYear).isEmpty());
+        if (DATABASE.getDirectoriesTable().get(thisYear).isEmpty()) {
+            System.out.println("adding to database");
+            addNewFolder(thisYear);
+        }
         return resolve;
     }
 
@@ -155,7 +156,7 @@ public class FlowTest {
      * read database and fill repositories
      */
     private static void readDatabaseAndFillRepositories() {
-        final Database.UpdateTableIntID<FileSong> filesTable = DATABASE.getFilesTable();
+        final Database.TableIntID<FileSong> filesTable = DATABASE.getFilesTable();
         final Database.UpdateTableIntID<Response> responsesTable = DATABASE.getResponsesTable();
         final Database.TableStringID<String> directoriesTable = DATABASE.getDirectoriesTable();
         final Database.TableIntID<Integer> sourcesTable = DATABASE.getSourcesTable();
@@ -180,6 +181,7 @@ public class FlowTest {
         List<FileSong> files = filesTable.all();
         List<Response> responses = responsesTable.all();
         List<String> directories = directoriesTable.all();
+        System.out.println(directories);
         List<Integer> sources = sourcesTable.all();
 
         List<ItemImage> localImages = imagesTable.all();
@@ -210,7 +212,8 @@ public class FlowTest {
                 items.stream().collect(
                         Collectors.groupingBy(SimpleItem.ItemUri::source,
                                 Collectors.groupingBy(
-                                        SimpleItem.ItemUri::type
+                                        SimpleItem.ItemUri::type,
+                                        toMap(SimpleItem.ItemUri::sourceId,i->i)
                                 ))));
         FilesResponsesRepository filesResponsesRepository = FilesResponsesRepository.from(files,responses,new HashSet<>(sources));
 
@@ -228,6 +231,9 @@ public class FlowTest {
         REPOSITORY.setItemsRepository(itemsRepository);
         REPOSITORY.setFilesResponsesRepository(filesResponsesRepository);
         REPOSITORY.setImagesRepository(new ImagesRepository(localImages,webImages));
+
+        System.out.println("creating if no exists");
+        existsOrCreateFolder(THIS_YEAR_FOLDER.getFileName().toString());
     }
 
     private static <T extends SimpleItem>  Map<Integer, List<Genre>> getItemGenresFromItemUriAndSourceIdWithGenres(Map<Integer, List<Genre>> itemGenresIds, List<T> items) {
@@ -266,207 +272,74 @@ public class FlowTest {
      */
 
     private static List<FileSong> addFileSongs(List<FileSong> files) {
-        List<FileSong> list = files.stream().map(f -> DATABASE.getFilesTable().insert(f)).toList();
-        ArrayList<FileSong> fileSongs = new ArrayList<>(REPOSITORY.getFilesResponsesRepository().fileSongList());
-        fileSongs.addAll(list);
-        REPOSITORY.setFilesResponsesRepository(
-                new FilesResponsesRepository(
-                        FilesResponsesRepository.fileSongListToMapByDirectory(fileSongs),
-                        REPOSITORY.getFilesResponsesRepository().getResponses(),
-                        REPOSITORY.getFilesResponsesRepository().getFromAnotherSource()
-                )
-        );
-        return list;
-    }
-
-    private static void updateResponse(Response response){
-        ArrayList<Response> responses = new ArrayList<>(REPOSITORY.getFilesResponsesRepository().responseList());
-        boolean b = responses.removeIf(f -> Objects.equals(f.id(), response.id()));
-        if (b) responses.add(response);
-        DATABASE.getResponsesTable().update(response);
-        REPOSITORY.setFilesResponsesRepository(
-                new FilesResponsesRepository(
-                        REPOSITORY.getFilesResponsesRepository().getFiles(),
-                        FilesResponsesRepository.responseListToMapByDirectory(REPOSITORY.getFilesResponsesRepository().getFiles(),responses),
-                        REPOSITORY.getFilesResponsesRepository().getFromAnotherSource()
-                )
-        );
-    }
-
-    private static void updateResponses(List<Response> responses){
-        ArrayList<Response> list = new ArrayList<>(REPOSITORY.getFilesResponsesRepository().responseList());
-        List<Response> responseList = responses.stream()
-                .filter(response -> list.removeIf(f -> Objects.equals(f.id(), response.id())))
-                .peek(list::add)
-                .peek(response -> DATABASE.getResponsesTable().update(response))
+        return files.stream()
+                .map(f -> DATABASE.getFilesTable().insert(f))
+                .peek(f->REPOSITORY.getFilesResponsesRepository().addFile(f.directory(),f))
                 .toList();
-        REPOSITORY.setFilesResponsesRepository(
-                new FilesResponsesRepository(
-                        REPOSITORY.getFilesResponsesRepository().getFiles(),
-                        FilesResponsesRepository.responseListToMapByDirectory(REPOSITORY.getFilesResponsesRepository().getFiles(),responseList),
-                        REPOSITORY.getFilesResponsesRepository().getFromAnotherSource()
-                )
-        );
+    }
+
+    private static void updateResponseFromNotChecked(FileSong directory, Response response){
+        DATABASE.getResponsesTable().update(response);
+        REPOSITORY.getFilesResponsesRepository().updateResponse(directory, Response.Status.not_checked,response);
+    }
+
+    private static void updateResponsesToAdded(List<FileSongStatusToAddedResponse> responses){
+        responses.forEach(r->{
+            DATABASE.getResponsesTable().update(r.updated());
+            REPOSITORY.getFilesResponsesRepository().updateResponse(r.fileSong(),r.previous(),r.updated());
+        });
     }
 
     private static void addNewFolder(String thisYear) {
         DATABASE.getDirectoriesTable().insert(thisYear);
-        ArrayList<String> strings = new ArrayList<>(REPOSITORY.getDirectories());
-        strings.add(thisYear);
-        REPOSITORY.setDirectories(strings);
+        REPOSITORY.getDirectories().add(thisYear);
     }
 
     private static void addResponseToDatabaseRepositoryResponsesFolder(List<FileSongResponseSpotifyTrackSearchResponse> results) {
         System.out.println("results:"+results.size());
-        ArrayList<Response> set = new ArrayList<>(REPOSITORY.getFilesResponsesRepository().responseList());
         results.stream()
-                .peek(r -> JSON_PROCESSOR.write(r.result(),RESPONSES_FOLDER.resolve(r.response().name())))
-                .map(r-> DATABASE.getResponsesTable().insert(r.response()))
-                .peek(f-> System.out.println("response:"+f.name()+":"+f.id()+" stored in the database"))
-                .forEach(set::add);
-        System.out.println("adding to repository");
-        REPOSITORY.setFilesResponsesRepository(
-                new FilesResponsesRepository(
-                        REPOSITORY.getFilesResponsesRepository().getFiles(),
-                        FilesResponsesRepository.responseListToMapByDirectory(REPOSITORY.getFilesResponsesRepository().getFiles(),set),
-                        REPOSITORY.getFilesResponsesRepository().getFromAnotherSource()
-                )
-        );
+                .peek(r -> JSON_PROCESSOR.write(r.result(),RESPONSES_FOLDER.resolve(r.response().nameWithExtension())))
+                .peek(r-> DATABASE.getResponsesTable().insert(r.response()))
+                .forEach(r->REPOSITORY.getFilesResponsesRepository().addResponse(r.fileSong(),r.response()));
     }
 
     private static List<SimpleItem.ItemUri> addItems(List<SimpleItem.ItemUri> items) {
-        List<SimpleItem.ItemUri> result = items.stream().map(i -> DATABASE.getObjectsTable().insert(i)).toList();
-        System.out.println("added to database");
-        Map<Database.ItemSource, Map<SimpleItem.ItemType, List<SimpleItem.ItemUri>>> collect = result.stream().collect(
-                Collectors.groupingBy(SimpleItem.ItemUri::source,
-                        Collectors.groupingBy(
-                                SimpleItem.ItemUri::type
-                        )));
-        REPOSITORY.getItemsRepository().getItems().forEach((source, itemsBySource)->
-                {
-                    if (!collect.containsKey(source)) collect.put(source,itemsBySource);
-                    else {
-                        itemsBySource.forEach((type,itemsByType)-> {
-                            if (!collect.get(source).containsKey(type)) collect.get(source).put(type,itemsByType);
-                            else collect.get(source).get(type).addAll(itemsByType);
-                        });
-                    }
-                }
-                );
-
-        System.out.println("made collected items");
-        REPOSITORY.setItemsRepository(new ItemsRepository(
-                REPOSITORY.getItemsRepository().getArtists(),
-                REPOSITORY.getItemsRepository().getAlbums(),
-                REPOSITORY.getItemsRepository().getTracks(),
-                REPOSITORY.getItemsRepository().getArtistsAlbums(),
-                REPOSITORY.getItemsRepository().getAlbumsTracks(),
-                REPOSITORY.getItemsRepository().getTrackArtists(),
-                collect
-                ));
-        return result;
+        return items.stream().map(i->DATABASE.getObjectsTable().insert(i))
+                .peek(i->REPOSITORY.getItemsRepository().addItemUri(i)).toList();
     }
 
     private static void addArtists(List<Artist> artists) {
-        Map<Integer, Artist> collect = artists.stream().map(a -> DATABASE.getArtistsTable().insert(a)).collect(toMap(SimpleItem::id, a -> a));
-        collect.putAll(REPOSITORY.getItemsRepository().getArtists());
-
-        REPOSITORY.setItemsRepository(new ItemsRepository(
-                collect,
-                REPOSITORY.getItemsRepository().getAlbums(),
-                REPOSITORY.getItemsRepository().getTracks(),
-                REPOSITORY.getItemsRepository().getArtistsAlbums(),
-                REPOSITORY.getItemsRepository().getAlbumsTracks(),
-                REPOSITORY.getItemsRepository().getTrackArtists(),
-                REPOSITORY.getItemsRepository().getItems()
-        ));
+        artists.stream()
+                .map(a -> DATABASE.getArtistsTable().insert(a))
+                .forEach(i->REPOSITORY.getItemsRepository().addArtist(i));
     }
 
     private static void addAlbum(List<Album> albums) {
-        Map<Integer, Album> collect = albums.stream().map(a -> DATABASE.getAlbumsTable().insert(a)).collect(toMap(SimpleItem::id, a -> a));
-        collect.putAll(REPOSITORY.getItemsRepository().getAlbums());
-
-        REPOSITORY.setItemsRepository(new ItemsRepository(
-                REPOSITORY.getItemsRepository().getArtists(),
-                collect,
-                REPOSITORY.getItemsRepository().getTracks(),
-                REPOSITORY.getItemsRepository().getArtistsAlbums(),
-                REPOSITORY.getItemsRepository().getAlbumsTracks(),
-                REPOSITORY.getItemsRepository().getTrackArtists(),
-                REPOSITORY.getItemsRepository().getItems()
-        ));
+        albums.stream().map(a -> DATABASE.getAlbumsTable().insert(a))
+                .forEach(a->REPOSITORY.getItemsRepository().addAlbum(a));
 
     }
 
     private static void addAlbumArtists(List<Album.AlbumArtist> list) {
-        Map<Integer, List<Integer>> collect = list.stream()
+        list.stream()
                 .map(aa -> DATABASE.getAlbumArtists().insert(aa))
-                .collect(
-                    groupingBy(Album.AlbumArtist::artistsId, mapping(Album.AlbumArtist::albumId, toList()))
-                );
-        collect.putAll(REPOSITORY.getItemsRepository().getArtistsAlbums());
-        REPOSITORY.setItemsRepository(
-                new ItemsRepository(
-                        REPOSITORY.getItemsRepository().getArtists(),
-                        REPOSITORY.getItemsRepository().getAlbums(),
-                        REPOSITORY.getItemsRepository().getTracks(),
-                        collect,
-                        REPOSITORY.getItemsRepository().getAlbumsTracks(),
-                        REPOSITORY.getItemsRepository().getTrackArtists(),
-                        REPOSITORY.getItemsRepository().getItems()
-                )
-        );
+                .forEach(aa->REPOSITORY.getItemsRepository().addArtistsAlbum(aa.artistsId(),aa.albumId()));
     }
 
     private static void addArtistsGenres(List<Genre.ItemGenre> list){
-        HashMap<Integer, List<Genre>> integerListHashMap = new HashMap<>(REPOSITORY.getGenresRepository().getArtistGenres());
-        integerListHashMap.putAll(addItemGenres(list));
-        REPOSITORY.setGenresRepository(
-                new GenresRepository(
-                        integerListHashMap,
-                        REPOSITORY.getGenresRepository().getAlbumGenres(),
-                        REPOSITORY.getGenresRepository().getTrackGenres(),
-                        REPOSITORY.getGenresRepository().getGenres()
-                )
+        list.stream().peek(ag-> DATABASE.getItemGenres().insert(ag)).forEach(
+                ag->REPOSITORY.getGenresRepository().addArtistGenres(ag.item(),ag.genre())
         );
     }
 
     private static void addAlbumsGenres(List<Genre.ItemGenre> list){
-        HashMap<Integer, List<Genre>> integerListHashMap = new HashMap<>(REPOSITORY.getGenresRepository().getAlbumGenres());
-        integerListHashMap.putAll(addItemGenres(list));
-        REPOSITORY.setGenresRepository(
-                new GenresRepository(
-                        REPOSITORY.getGenresRepository().getArtistGenres(),
-                        integerListHashMap,
-                        REPOSITORY.getGenresRepository().getTrackGenres(),
-                        REPOSITORY.getGenresRepository().getGenres()
-                )
+        list.stream().peek(ag-> DATABASE.getItemGenres().insert(ag)).forEach(
+                ag->REPOSITORY.getGenresRepository().addAlbumGenres(ag.item(),ag.genre())
         );
-    }
-
-
-    private static Map<Integer, List<Genre>> addItemGenres(List<Genre.ItemGenre> list) {
-        return list.stream()
-                .map(ig -> DATABASE.getItemGenres().insert(ig))
-                .map(ig -> Map.entry(ig.item(), ig.genre()))
-                .collect(Collectors.groupingBy(
-                        Map.Entry::getKey,
-                        Collectors.mapping(Map.Entry::getValue, Collectors.toList())
-                ));
     }
 
     private static void addGenre(String g) {
-
-        ArrayList<Genre> genres = new ArrayList<>(REPOSITORY.getGenresRepository().getGenres());
-        genres.add(DATABASE.getGenresTable().insert(new Genre(g)));
-        REPOSITORY.setGenresRepository(
-                new GenresRepository(
-                        REPOSITORY.getGenresRepository().getArtistGenres(),
-                        REPOSITORY.getGenresRepository().getAlbumGenres(),
-                        REPOSITORY.getGenresRepository().getTrackGenres(),
-                        genres
-                )
-        );
+        REPOSITORY.getGenresRepository().addGenre(DATABASE.getGenresTable().insert(new Genre(g)));
     }
 
     private static void addTracks(List<FileSongResponseSpotifyTrack> results, ArtistsAndAlbumsResultListener.SearchResult albumsAndArtists) {
@@ -493,10 +366,12 @@ public class FlowTest {
         System.out.println("adding tracks to database");
         addTracks(tracks, trackGenres, trackArtists);
 
-        //todo -> add all
-
-        List<Response> responses = results.stream().map(FileSongResponseSpotifyTrack::response).map(r-> RESPONSE_STATUS_UPDATER.updateStatus(Response.Status.added,r)).toList();
-        updateResponses(responses);
+        List<FileSongStatusToAddedResponse> fileSongStatusToAddedResponses = results.stream().map(r ->
+                new FileSongStatusToAddedResponse(
+                        r.fileSong(),
+                        r.response().status(),
+                        RESPONSE_STATUS_UPDATER.updateStatus(Response.Status.added, r.response()))).toList();
+        updateResponsesToAdded(fileSongStatusToAddedResponses);
     }
 
 
@@ -507,37 +382,11 @@ public class FlowTest {
         trackGenres.forEach(tg-> DATABASE.getItemGenres().insert(tg));
         System.out.println("genres");
         trackArtists.forEach(ta-> DATABASE.getTrackArtists().insert(ta));
-
-        System.out.println("added");
-        Map<Integer, Track> tracks = list.stream().collect(toMap(SimpleItem::id, t -> t));
-        Map<Integer, List<Genre>> genres = trackGenres.stream().collect(groupingBy(Genre.ItemGenre::item, mapping(Genre.ItemGenre::genre, toList())));
-        Map<Integer, List<Integer>> artists = trackArtists.stream().collect(groupingBy(Track.TrackArtist::trackId, mapping(Track.TrackArtist::artistsId, toList())));
-        tracks.putAll(REPOSITORY.getItemsRepository().getTracks());
-        genres.putAll(REPOSITORY.getGenresRepository().getTrackGenres());
-        artists.putAll(REPOSITORY.getItemsRepository().getTrackArtists());
-
-        System.out.println("to repositories");
-        REPOSITORY.setGenresRepository(
-                new GenresRepository(
-                        REPOSITORY.getGenresRepository().getArtistGenres(),
-                        REPOSITORY.getGenresRepository().getAlbumGenres(),
-                        genres,
-                        REPOSITORY.getGenresRepository().getGenres()
-                )
-        );
-
-        REPOSITORY.setItemsRepository(
-                new ItemsRepository(
-                        REPOSITORY.getItemsRepository().getArtists(),
-                        REPOSITORY.getItemsRepository().getAlbums(),
-                        tracks,
-                        REPOSITORY.getItemsRepository().getArtistsAlbums(),
-                        REPOSITORY.getItemsRepository().getAlbumsTracks(),
-                        artists,
-                        REPOSITORY.getItemsRepository().getItems()
-                )
-        );
-
+        System.out.println("in repository");
+        list.forEach(t->REPOSITORY.getItemsRepository().addTrack(t));
+        list.forEach(t->REPOSITORY.getItemsRepository().addAlbumTrack(t.albumId(),t.id()));
+        trackGenres.forEach(tg->REPOSITORY.getGenresRepository().addTrackGenres(tg.item(),tg.genre()));
+        trackArtists.forEach(ta-> REPOSITORY.getItemsRepository().addTrackArtist(ta.trackId(),ta.artistsId()));
     }
 
     /**
@@ -556,6 +405,7 @@ public class FlowTest {
         System.out.println("database and repositories ready");
         FilesFromDirectory read = read();
         TOKEN_MANAGER.start();
+        System.out.println(read.files());
         if (read.areNew()){
             List<FileSong> fileSongs = addFileSongs(read.files());
             requestFileSongs(fileSongs); // jump to selection(List<FileSongResponseSpotifyTrackSearchResponse> requestedData)
@@ -592,7 +442,7 @@ public class FlowTest {
 
                     List<FileSongResponseSpotifyTrack> list =
                             filesResponsesRepository.toMap().entrySet().stream()
-                                .peek(entry-> System.out.println(DB_FOLDER.resolve(entry.getKey().directory()).resolve(entry.getKey().name())))
+                                .peek(entry-> System.out.println(DB_FOLDER.resolve(entry.getValue().directory()).resolve(entry.getValue().nameWithExtension())))
                                 .map(entry ->
                                         new FileSongResponseSpotifyTrack(
                                             entry.getKey(),
@@ -619,7 +469,7 @@ public class FlowTest {
     }
 
     private static SpotifyTrackSearchResponse readResponseOf(Response value) {
-        return JSON_PROCESSOR.read(SpotifyTrackSearchResponse.class,RESPONSES_FOLDER.resolve(value.name()));
+        return JSON_PROCESSOR.read(SpotifyTrackSearchResponse.class,RESPONSES_FOLDER.resolve(value.nameWithExtension()));
     }
 
     /**
@@ -800,7 +650,7 @@ public class FlowTest {
 
     private static void markAsCheckedAndContained(FileSongResponseSpotifyTrackSearchResponse data) {
         Response response = RESPONSE_STATUS_UPDATER.updateStatus(Response.Status.checked_contained,data.response());
-        updateResponse(response);
+        updateResponseFromNotChecked(data.fileSong(), response);
     }
 
     private static Optional<SpotifyTrack> selectTrack(SpotifyTrackSearchResponse result) {
@@ -832,7 +682,7 @@ public class FlowTest {
 
     private static void markAsCheckedNotContained(FileSongResponseSpotifyTrackSearchResponse data) {
         Response response = RESPONSE_STATUS_UPDATER.updateStatus(Response.Status.checked_not_contained,data.response());
-        updateResponse(response);
+        updateResponseFromNotChecked(data.fileSong(), response);
     }
 
 
@@ -919,7 +769,7 @@ public class FlowTest {
                 System.out.println(spotifyMultipleArtists.albums().size());
                 spotifyMultipleArtists.albums().stream()
                         .peek(a->items.add(new SimpleItem.ItemUri(0, Database.ItemSource.spotify, SimpleItem.ItemType.album, a.getId())))
-                        .peek(a-> System.out.println("added as item temporaly:"+a.getId()))
+                        .peek(a-> System.out.println("added as item temporally:"+a.getId()))
                         .peek(spotifyAlbum-> albumGenres.put(
                                 spotifyAlbum.getId(),
                                 List.copyOf(
@@ -991,7 +841,7 @@ public class FlowTest {
                     List<Artist> trackArtists = fileSongResponseSpotifyTrack.spotifyTrack().getArtists()
                             .stream().map(SpotifySimplifiedObject::getId).map(stringId -> {
                                 if (albumsAndArtists.artistsUris().containsKey(stringId)) {
-                                    System.out.println("from albumartistsuris");
+                                    System.out.println("from album artists uris");
                                     Artist artist = albumsAndArtists.artists().get(albumsAndArtists.artistsUris().get(stringId).id());
                                     System.out.println("artist"+artist);
                                     return artist;
@@ -1043,7 +893,7 @@ public class FlowTest {
                 spotifyMultipleArtists.artists().stream()
                         .peek(a-> items.add(new SimpleItem.ItemUri(0, Database.ItemSource.spotify, SimpleItem.ItemType.artist,a.getId())))
                         .peek(a-> a.getGenres().forEach(g->{
-                            if (!REPOSITORY.getGenresRepository().getGenres().contains(new Genre(g))) {
+                            if (!REPOSITORY.getGenresRepository().containsGenre(new Genre(g))) {
                                 System.out.println("adding genre:"+g);
                                 addGenre(g);}
                             artistGenres.putIfAbsent(a.getId(),new ArrayList<>());
@@ -1093,13 +943,11 @@ public class FlowTest {
         List<String> trackIds = new ArrayList<>();
         Map<FileSong,Response> fromAnotherSource = new HashMap<>();
 
-        notContained.forEach((filesong,response)->{
+        notContained.forEach((fileSong,response)->{
             Optional<String> trackId = askForATrackIdOrMarkFromOtherSource();
-            trackId.ifPresentOrElse(trackIds::add,()->fromAnotherSource.put(filesong,response));
+            trackId.ifPresentOrElse(trackIds::add,()->fromAnotherSource.put(fileSong,response));
         });
          */
-
-
 
     }
 
