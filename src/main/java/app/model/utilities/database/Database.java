@@ -33,11 +33,7 @@ public interface Database {
     }
 
     interface UpdateTableIntID<T> extends TableIntID<T>{
-        T update(T item);
-    }
-
-    interface UpdateTableStringID<T> extends TableStringID<T>{
-        T update(T item);
+        void update(T item);
     }
 
     enum ItemSource {
@@ -80,6 +76,13 @@ public interface Database {
                     FOREIGN KEY (ID) REFERENCES FILES(ID) ON DELETE CASCADE
                 );
                 """),
+        INDIVIDUALS("""
+                CREATE TABLE IF NOT EXISTS INDIVIDUALS (
+                    ID INTEGER PRIMARY KEY,
+                    TRACK_ID TEXT UNIQUE NOT NULL,
+                    FOREIGN KEY (ID) REFERENCES OBJECTS(ID) ON DELETE CASCADE\s
+                )
+                """),
         OBJECTS("""
                 CREATE TABLE IF NOT EXISTS OBJECTS (
                     ID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -91,7 +94,7 @@ public interface Database {
         WEB_IMAGES("""
                 CREATE TABLE IF NOT EXISTS WEB_IMAGES(
                     OBJECT INTEGER NOT NULL,
-                    SOURCE TEXT UNIQUE NOT NULL,
+                    SOURCE TEXT NOT NULL,
                     WIDTH INT NOT NULL,
                     HEIGHT INT NOT NULL,
                     FOREIGN KEY (OBJECT) REFERENCES OBJECTS(ID) ON DELETE CASCADE,
@@ -102,7 +105,7 @@ public interface Database {
                 CREATE TABLE IF NOT EXISTS IMAGES (
                     OBJECT INTEGER NOT NULL,
                     NUMBER INT NOT NULL,
-                    PATH TEXT UNIQUE NOT NULL,
+                    PATH TEXT NOT NULL,
                     WIDTH INT NOT NULL,
                     HEIGHT INT NOT NULL,
                     FOREIGN KEY (OBJECT) REFERENCES OBJECTS(ID) ON DELETE CASCADE,

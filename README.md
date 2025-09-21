@@ -194,10 +194,10 @@ both (asking user):
       + a set for the artists ids from the tracks
   then: [#SeveralLimits]() -> track=50, artists=50, albums=20
     + following the getSeveral... endpoints' limits: [#AlbumsAndArtistsMaps]()
-      + in batches of 50 artists, requests to the getSeveralArtists endpoint
+      + in batches of 50 artists, requests to the getSeveralArtists endpointRequest
         + update the database Objects.Table, Artists.Table, Genres.Table
         + storing in a map(string id, SpotifyAlbum)
-      + in batches of 20 albums, requests to the getSeveralAlbums endpoint
+      + in batches of 20 albums, requests to the getSeveralAlbums endpointRequest
         + update the database Objects.Table, Albums.Table, ALBUM_ARTISTS.Table
         + storing in a map(string id, SpotifyArtist)
   then: [#AddTrack]()
@@ -212,7 +212,7 @@ both (asking user):
     + updates database Temporary.Table(response id, track id)
     + IF the track is not in Spotify -> updates Particular.Table(response id)
   + after all ids are filled:
-    + uses [#responseToTrackIdMap]() to call the endpoint getSeveralTracks in batches of 50 ids
+    + uses [#responseToTrackIdMap]() to call the endpointRequest getSeveralTracks in batches of 50 ids
       + follows partially [#checkProcess](): correcting the jsons, updating Responses.Table 
       + while eliminating the entry in Temporary.Table
     + then back to [#withSpotifyTracksProcess]() once all the batches are fulfilled

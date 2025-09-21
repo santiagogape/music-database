@@ -1,6 +1,6 @@
 package dependencies.control;
 
-import app.control.files.actors.JsonProcessor;
+import app.control.files.json.JsonProcessor;
 import com.google.gson.Gson;
 
 import java.io.FileWriter;

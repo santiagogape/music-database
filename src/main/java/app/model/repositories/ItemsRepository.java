@@ -30,6 +30,9 @@ public class ItemsRepository {
         this.albumsTracks = albumsTracks;
         this.trackArtists = trackArtists;
         this.items = items;
+        artists.keySet().forEach(k->artistsAlbums.putIfAbsent(k,new ArrayList<>()));
+        albums.keySet().forEach(k->albumsTracks.putIfAbsent(k,new ArrayList<>()));
+        tracks.keySet().forEach(k->trackArtists.putIfAbsent(k,new ArrayList<>()));
 
     }
 
@@ -41,10 +44,6 @@ public class ItemsRepository {
         return getItemUriID(source, SimpleItem.ItemType.album, sourceId).map(albums::get);
     }
 
-    public Optional<Track> getTrackUriByItem(Database.ItemSource source, String sourceId){
-        return getItemUriID(source, SimpleItem.ItemType.track, sourceId).map(tracks::get);
-    }
-
     public Optional<Integer> getItemUriID(Database.ItemSource source, SimpleItem.ItemType type, String sourceId) {
         if (items.get(source) == null ||
                 items.get(source).get(type) == null ||
@@ -54,7 +53,10 @@ public class ItemsRepository {
     }
 
     public void addArtistsAlbum(Integer artistId, Integer albumId){
+        System.out.println("adding "+artistId+","+albumId);
+        System.out.println(artistsAlbums.get(artistId));
         artistsAlbums.get(artistId).add(albumId);
+        System.out.println(artistsAlbums.get(artistId));
     }
 
     public void addAlbumTrack(Integer albumId, Integer trackId){
@@ -87,8 +89,8 @@ public class ItemsRepository {
     }
 
     public void addItemUri(SimpleItem.ItemUri itemUri){
-        items.computeIfAbsent(itemUri.source(), _ -> new HashMap<>());
-        items.get(itemUri.source()).computeIfAbsent(itemUri.type(),_ -> new HashMap<>());
-        items.get(itemUri.source()).get(itemUri.type()).put(itemUri.sourceId(),itemUri);
+        items.computeIfAbsent(itemUri.source(), _ -> new HashMap<>())
+                .computeIfAbsent(itemUri.type(),_ -> new HashMap<>())
+                .put(itemUri.sourceId(),itemUri);
     }
 }

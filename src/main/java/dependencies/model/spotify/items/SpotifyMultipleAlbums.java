@@ -1,4 +1,4 @@
-package dependencies.model.spotify.items.simplified;
+package dependencies.model.spotify.items;
 
 import dependencies.model.spotify.items.full.SpotifyAlbum;
 

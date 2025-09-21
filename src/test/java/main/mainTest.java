@@ -1,7 +1,7 @@
 package main;
 
 import app.control.TokenManager;
-import app.control.api.BatchTrackSearch;
+import app.control.api.BatchTrackSearcher;
 import app.control.api.ResponsesObserver;
 import app.control.files.actors.JsonWriter;
 import com.google.gson.Gson;
@@ -57,7 +57,7 @@ public class mainTest {
         }
         AccessToken accessToken = tokenManager.accessToken();
         jsonWriter.save(new TokenResponse(accessToken.token(),"bearer","3600"), "C:\\Users\\santi\\Desktop\\desarrollo\\music-app\\music-database-v1\\src\\main\\resources\\examples\\accessToken.json");
-        BatchTrackSearch batchTrackSearch = new BatchTrackSearch(strings.list(), tokenManager, 20, new SpotifyTrackSearch(client), createObserver());
+        BatchTrackSearcher batchTrackSearch = new BatchTrackSearcher(strings.list(), tokenManager, 20, new SpotifyTrackSearch(client), createObserver());
         batchTrackSearch.start();
     }
 

@@ -4,10 +4,7 @@ import app.model.items.*;
 import app.model.utilities.database.Database;
 import dependencies.model.SQLite.MusicSQLiteDatabase;
 import dependencies.model.SQLite.tables.files.*;
-import dependencies.model.SQLite.tables.items.AlbumsTable;
-import dependencies.model.SQLite.tables.items.ArtistsTable;
-import dependencies.model.SQLite.tables.items.ObjectsTable;
-import dependencies.model.SQLite.tables.items.TracksTable;
+import dependencies.model.SQLite.tables.items.*;
 import dependencies.model.SQLite.tables.items.relations.AlbumArtistsTable;
 import dependencies.model.SQLite.tables.items.relations.ItemGenresTable;
 import dependencies.model.SQLite.tables.items.relations.TracksArtistsTable;
@@ -39,6 +36,7 @@ public class MainDatabase {
 
 
     private final Database.TableIntID<ImageRef.ItemImageRef> webImagesTable;
+    private final Database.TableIntID<FileSong.Individual> individualsTable;
 
 
     public MainDatabase(MusicSQLiteDatabase database) {
@@ -65,6 +63,7 @@ public class MainDatabase {
         trackArtists = new TracksArtistsTable(connection);
         itemGenres = new ItemGenresTable(connection);
         genresTable = new GenresTable(connection);
+        individualsTable = new IndividualsTable(connection);
     }
 
     public static String now(){
@@ -139,8 +138,11 @@ public class MainDatabase {
         return genresTable;
     }
 
+    public Database.TableIntID<FileSong.Individual> getIndividualsTable() {
+        return individualsTable;
+    }
+
     public void close(){
-        database.commit();
         database.close();
     }
 }

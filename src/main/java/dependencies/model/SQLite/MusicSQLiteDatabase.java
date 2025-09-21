@@ -83,6 +83,7 @@ public class MusicSQLiteDatabase implements Database {
             connection = DriverManager.getConnection(this.url);
             try (Statement st = connection.createStatement()) {
                 st.execute("PRAGMA foreign_keys = ON;");
+                st.execute("PRAGMA busy_timeout = 5000;");
             }
         } catch (SQLException e) {
             throw new RuntimeException(e);

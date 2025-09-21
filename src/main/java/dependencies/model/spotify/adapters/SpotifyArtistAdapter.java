@@ -6,10 +6,11 @@ import dependencies.model.spotify.items.SpotifyArtist;
 
 public class SpotifyArtistAdapter implements Artist {
 
-    private final SpotifyArtist artist;
+
+    private final String name;
 
     public SpotifyArtistAdapter(SpotifyArtist artist) {
-        this.artist = artist;
+        this.name = artist.getName();
     }
 
     @Override
@@ -19,7 +20,7 @@ public class SpotifyArtistAdapter implements Artist {
 
     @Override
     public String name() {
-        return artist.getName();
+        return this.name;
     }
 
     @Override

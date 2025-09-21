@@ -23,9 +23,10 @@ public final class ProcessMetadataToRequestString {
                                     ? meta.title()
                                     : String.join(" artist:", meta.title(), cleanArtists);
                         } else {
+                            String joined = String.join(" album:", meta.title(), meta.album());
                             return artistInTitle
-                                    ? String.join(" album:", meta.title(), meta.album())
-                                    : String.join(" artist:", String.join(" album:", meta.title(), meta.album()), cleanArtists);
+                                    ? joined
+                                    : String.join(" artist:", joined, cleanArtists);
                         }
 
                     } else {

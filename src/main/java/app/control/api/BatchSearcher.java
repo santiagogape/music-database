@@ -1,5 +1,5 @@
 package app.control.api;
 
-public interface BatchSearch {
+public interface BatchSearcher {
     void start();
 }

@@ -6,6 +6,7 @@ import app.model.items.Response;
 import app.model.items.SimpleItem;
 
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.groupingBy;
@@ -14,12 +15,17 @@ public class FilesResponsesRepository {
 
 
     private final Set<Integer> fromAnotherSource;
+    private final Map<Integer,String> individuals;
     private final Map<String,Map<Integer,FileSong>> files;
     private final Map<String,Map<Response.Status,Map<Integer,Response>>> responses;
 
-    public static FilesResponsesRepository from(List<FileSong> files, List<Response> responses, Set<Integer> fromAnotherSource){
+    public static FilesResponsesRepository from(List<FileSong> files, List<Response> responses, Set<Integer> fromAnotherSource, List<FileSong.Individual> individuals){
         Map<String, Map<Integer, FileSong>> map = fileSongListToMapByDirectory(files);
-        return new FilesResponsesRepository(map, responseListToMapByDirectory(map,responses), fromAnotherSource);
+        return new FilesResponsesRepository(
+                map,
+                responseListToMapByDirectory(map,responses),
+                fromAnotherSource,
+                individuals.stream().collect(Collectors.toMap(FileSong.Individual::id, FileSong.Individual::trackId)));
     }
 
     private static Map<String,Map<Integer,FileSong>> fileSongListToMapByDirectory(List<FileSong> fileSongs){
@@ -42,10 +48,12 @@ public class FilesResponsesRepository {
     public FilesResponsesRepository(
             Map<String,Map<Integer,FileSong>> files,
             Map<String,Map<Response.Status,Map<Integer,Response>>> responses,
-            Set<Integer> fromAnotherSource) {
+            Set<Integer> fromAnotherSource,
+            Map<Integer,String> individuals) {
         this.files = files;
         this.responses = responses;
         this.fromAnotherSource = fromAnotherSource;
+        this.individuals = individuals;
         checkStructure();
     }
 
@@ -54,12 +62,6 @@ public class FilesResponsesRepository {
                 .stream()
                 .flatMap(f->f.values().stream())
                 .toList();
-    }
-
-    private Optional<FileSong> getFileSongFromResponse(Response response){
-        return files.values().stream()
-                .filter(integerFileSongMap -> integerFileSongMap.containsKey(response.id()))
-                .map(integerFileSongMap -> integerFileSongMap.get(response.id())).findFirst();
     }
 
     private Optional<Response> getResponseFromFileSong(FileSong file) {
@@ -74,21 +76,10 @@ public class FilesResponsesRepository {
         return fromAnotherSource.contains(id);
     }
 
-    private Map<String, Map<Response.Status, Map<Integer, Response>>> mapResponseFromMapFileSong(Map<String, Map<Integer, FileSong>> map) {
-        Map<String, Map<Response.Status, Map<Integer, Response>>> result = new HashMap<>();
-        map.forEach((directory,fileSongs)->{
-            if (responses.containsKey(directory)) {
-                result.put(directory, new HashMap<>());
-                fileSongs.values().stream()
-                        .map(this::getResponseFromFileSong).filter(Optional::isPresent).map(Optional::get)
-                        .forEach(r->{
-                            result.get(directory).putIfAbsent(r.status(),new HashMap<>());
-                            result.get(directory).get(r.status()).put(r.id(),r);
-                        });
-            }
-        });
-        return result;
+    private boolean isAnIndividual(Integer id){
+        return individuals.containsKey(id);
     }
+
 
     public List<FileSong> filesWithoutResponse(){
         return  fileSongListOf(files).stream().filter(f -> getResponseFromFileSong(f).isEmpty()).collect(Collectors.toList());
@@ -99,15 +90,20 @@ public class FilesResponsesRepository {
         Map<String,Map<Response.Status,Map<Integer,Response>>> filteredResponses = new HashMap<>();
         filteredFiles.put(directory,files.get(directory));
         filteredResponses.put(directory,responses.get(directory));
-        return new FilesResponsesRepository(filteredFiles,
+        Set<Integer> list = fileSongListOf(filteredFiles).stream().map(SimpleItem::id).collect(Collectors.toSet());
+        return new FilesResponsesRepository(
+                filteredFiles,
                 filteredResponses,
-                fileSongListOf(filteredFiles).stream().map(SimpleItem::id).filter(this::isFromAnotherSource).collect(Collectors.toSet()));
+                list.stream().filter(this::isFromAnotherSource).collect(Collectors.toSet()),
+                individuals.entrySet().stream().filter(e->list.contains(e.getKey())).collect(Collectors.toMap(Map.Entry::getKey,Map.Entry::getValue))
+                );
     }
 
     public FilesResponsesRepository filterByResponseStatus(Response.Status status){
         Map<String,Map<Integer,FileSong>> filteredFiles = new HashMap<>();
         Map<String,Map<Response.Status,Map<Integer,Response>>> filteredResponses = new HashMap<>();
         Set<Integer> filteredFromAnotherSource = new HashSet<>();
+        Map<Integer,String> filteredIndividuals = new HashMap<>();
 
         responses.forEach((directory, mapByStatus)->{
             filteredResponses.put(directory,new HashMap<>());
@@ -116,42 +112,67 @@ public class FilesResponsesRepository {
             mapByStatus.entrySet().stream()
                     .flatMap(e->e.getValue().values().stream().map(SimpleItem::id))
                     .peek(i-> {if (isFromAnotherSource(i)) filteredFromAnotherSource.add(i);})
+                    .peek(i->{if (isAnIndividual(i)) filteredIndividuals.put(i, individuals.get(i));})
                     .forEach(i->filteredFiles.get(directory).put(i,files.get(directory).get(i)));
         });
 
-        return new FilesResponsesRepository(filteredFiles,filteredResponses,filteredFromAnotherSource);
+        return new FilesResponsesRepository(filteredFiles,filteredResponses,filteredFromAnotherSource, filteredIndividuals);
     }
 
     public FilesResponsesRepository filterByResponseFromAnotherSource(){
+        Map<String, Map<Integer, FileSong>> filteredFiles = new HashMap<>();
+        Map<String, Map<Response.Status, Map<Integer, Response>>> filteredResponses = new HashMap<>();
+        filterFromSourceOrIndividual(this::isFromAnotherSource,filteredFiles,filteredResponses);
+        return new FilesResponsesRepository(
+                filteredFiles,
+                filteredResponses,
+                fromAnotherSource,
+                new HashMap<>()
+        );
 
-        Map<String,Map<Integer,FileSong>> filteredFiles = new HashMap<>();
-        Map<String,Map<Response.Status,Map<Integer,Response>>> filteredResponses = new HashMap<>();
+    }
 
-        files.forEach((directory,map)->{
-            map.entrySet().stream()
-                    .filter(e -> isFromAnotherSource(e.getKey()))
-                    .findFirst()
-                    .ifPresent(e->{
-                        filteredFiles.put(directory, new HashMap<>());
-                        filteredResponses.put(directory, new HashMap<>());
-                        responses.get(directory).forEach((status, mapByStatus)->{
-                            if (mapByStatus.containsKey(e.getKey())) filteredResponses.get(directory).put(status,new HashMap<>());
-                        });
-                        });
-        });
-        fromAnotherSource.forEach(i->{
-            files.forEach((directory,mapByDirectory)->{
-                if (mapByDirectory.containsKey(i)) filteredFiles.get(directory).put(i,mapByDirectory.get(i));
+    private void filterFromSourceOrIndividual(
+            Function<Integer,Boolean> function,
+            Map<String, Map<Integer, FileSong>> filteredFiles,
+            Map<String, Map<Response.Status, Map<Integer, Response>>> filteredResponses){
+        files.forEach((directory, mapByDirectory) -> {
+            Map<Integer, FileSong> filteredFileMap = new HashMap<>();
+            Map<Response.Status, Map<Integer, Response>> filteredResponseStatusMap = new HashMap<>();
+
+            mapByDirectory.forEach((id, fileSong) -> {
+                if (function.apply(id)) {
+                    filteredFileMap.put(id, fileSong);
+
+                    responses.getOrDefault(directory, Map.of())
+                            .forEach((status, responseMap) -> {
+                                Response response = responseMap.get(id);
+                                if (response != null) {
+                                    filteredResponseStatusMap
+                                            .computeIfAbsent(status, s -> new HashMap<>())
+                                            .put(id, response);
+                                }
+                            });
+                }
             });
-            responses.forEach((directory,statusMap)->{
-                statusMap.forEach((status,map)->{
-                    if (map.containsKey(i)) filteredResponses.get(directory).get(status).put(i, map.get(i));
-                });
-            });
+
+            if (!filteredFileMap.isEmpty() || !filteredResponseStatusMap.isEmpty()) {
+                filteredFiles.put(directory, filteredFileMap);
+                filteredResponses.put(directory, filteredResponseStatusMap);
+            }
         });
+    }
 
-        return new FilesResponsesRepository(filteredFiles,filteredResponses,fromAnotherSource);
-
+    public FilesResponsesRepository filterByIndividuals(){
+        Map<String, Map<Integer, FileSong>> filteredFiles = new HashMap<>();
+        Map<String, Map<Response.Status, Map<Integer, Response>>> filteredResponses = new HashMap<>();
+        filterFromSourceOrIndividual(this::isAnIndividual,filteredFiles,filteredResponses);
+        return new FilesResponsesRepository(
+                filteredFiles,
+                filteredResponses,
+                new HashSet<>(),
+                individuals
+        );
     }
 
     public Map<FileSong,Response> toMap(){
@@ -183,11 +204,21 @@ public class FilesResponsesRepository {
         responses.get(fileSong.directory()).get(response.status()).put(response.id(),response);
     }
 
+    public void addFromAnotherSource(Integer id){
+        fromAnotherSource.add(id);
+    }
+
+    public void addIndividual(FileSong.Individual individual){
+        individuals.put(individual.id(), individual.trackId());
+    }
+
     private void checkStructure(){
-        responses.forEach((directory, statusMap)-> {
+        responses.forEach((_, statusMap)-> {
             for (Response.Status value : Response.Status.values()) {
-                responses.get(directory).putIfAbsent(value,new HashMap<>());
+                statusMap.putIfAbsent(value,new HashMap<>());
             }
         });
     }
+
+
 }

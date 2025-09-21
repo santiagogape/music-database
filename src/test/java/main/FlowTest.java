@@ -6,13 +6,20 @@ import Main.MainRepository;
 import app.control.Flow;
 import app.control.TokenManager;
 import app.control.api.*;
+import app.control.api.batches.BatchSearchMultipleEndpoint;
+import app.control.api.batches.TrackBatchSearcher;
+import app.control.api.endpoints.MultipleEndpoint;
 import app.control.files.ProcessMetadataToRequestString;
 import app.control.files.actors.*;
+import app.control.files.json.JsonProcessor;
 import app.control.items.ItemIDUpdater;
 import app.control.items.ResponseCreator;
 import app.control.items.ResponseStatusUpdater;
 import app.model.resources.FileSongStatusToAddedResponse;
 import app.model.resources.FilesFromDirectory;
+import app.model.utilities.api.*;
+import app.model.utilities.api.factories.implementations.*;
+import app.model.utilities.api.factories.implementations.EndpointSearchResultBasicWithImagesAndGenreLabeledFactory;
 import dependencies.control.GsonJsonProcessor;
 import app.control.files.actors.mp3Metadata.MP3Processor;
 
@@ -26,24 +33,19 @@ import app.model.utilities.database.Database;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import dependencies.control.JAudioTaggerMP3MetadataReader;
+import dependencies.control.spotify.search.spotifyTrackBatchSearcher;
 import dependencies.model.SQLite.MusicSQLiteDatabase;
 import dependencies.control.spotify.SpotifyTokenManager;
-import dependencies.control.spotify.search.SpotifyMultipleAlbumSearch;
-import dependencies.control.spotify.search.SpotifyMultipleArtistSearch;
-import dependencies.control.spotify.search.SpotifyTrackSearch;
-import dependencies.model.resources.ArtistsAndAlbumsResultListener;
-import dependencies.model.resources.FileSongResponseSpotifyTrack;
-import dependencies.model.resources.FileSongResponseSpotifyTrackSearchResponse;
-import dependencies.model.spotify.adapters.SpotifyAlbumAdapter;
-import dependencies.model.spotify.adapters.SpotifyArtistAdapter;
-import dependencies.model.spotify.adapters.SpotifyTrackAdapter;
+import dependencies.model.resources.FileSongResponseTrackSearchResult;
+import dependencies.model.resources.FileSongResponseTrackSearchResultList;
+import dependencies.model.spotify.adapters.TrackSearchResultAdapter;
+import dependencies.model.spotify.api.*;
+import dependencies.model.spotify.api.factoryFillers.SpotifyMultipleAlbumsEndpointSearchResultWithImagesFactoryFiller;
+import dependencies.model.spotify.api.factoryFillers.SpotifyMultipleArtistsEndpointSearchResultWithImagesAndGenreLabeledFactoryFiller;
 import dependencies.model.spotify.auth.ClientCredentials;
 import dependencies.model.spotify.auth.TokenRequest;
 import dependencies.model.spotify.items.SpotifyMultipleArtists;
-import dependencies.model.spotify.items.SpotifyTrackSearchResponse;
-import dependencies.model.spotify.items.full.SpotifyTrack;
-import dependencies.model.spotify.items.simplified.SpotifyMultipleAlbums;
-import dependencies.model.spotify.items.simplified.SpotifySimplifiedObject;
+import dependencies.model.spotify.items.SpotifyMultipleAlbums;
 
 import java.io.*;
 import java.net.http.HttpClient;
@@ -67,17 +69,6 @@ public class FlowTest {
     static final Scanner SCANNER = new Scanner(System.in);
     static final HttpClient CLIENT = HttpClient.newHttpClient();
     static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    static final CountDownLatch COUNT_DOWN_LATCH_FOR_FINISHED_FLOWS = new CountDownLatch(1);
-
-
-    //API
-    static final ClientCredentials CLIENT_CREDENTIALS =
-            fromJsonResource("/client-credentials.json", ClientCredentials.class);
-    static final TokenManager TOKEN_MANAGER =
-            new SpotifyTokenManager(CLIENT, new TokenRequest(CLIENT_CREDENTIALS));
-    static final Search TRACK_SEARCH = new SpotifyTrackSearch(CLIENT);
-    public static final MultipleSearcher MULTIPLE_ARTIST_SEARCH = new SpotifyMultipleArtistSearch(CLIENT);
-    public static final MultipleSearcher MULTIPLE_ALBUM_SEARCH = new SpotifyMultipleAlbumSearch(CLIENT);
 
     //DATABASE
     static final Path DB_FOLDER = Path.of("C:\\Users\\santi\\Desktop\\musica");
@@ -99,25 +90,67 @@ public class FlowTest {
     static final ItemIDUpdater ITEM_ID_UPDATER = new ItemIDUpdater();
     static final ResponseCreator RESPONSE_CREATOR = new ResponseCreator();
 
+    //API
+    static final ClientCredentials CLIENT_CREDENTIALS =
+            fromJsonResource();
+    static final TokenManager TOKEN_MANAGER =
+            new SpotifyTokenManager(CLIENT, new TokenRequest(CLIENT_CREDENTIALS));
+
+    static final EndpointRequest ENDPOINT_REQUEST = new SpotifyEndpointRequest(CLIENT);
+    static final TrackSearchEndpoint TRACK_SEARCH_ENDPOINT = new SpotifyTrackSearchEndpoint(JSON_PROCESSOR,ENDPOINT_REQUEST);
+    static final TrackBatchSearcher TRACK_BATCH_SEARCHER = new spotifyTrackBatchSearcher(TOKEN_MANAGER,20, TRACK_SEARCH_ENDPOINT);
+
+    static final BatchSearchMultipleEndpoint<
+            SpotifyMultipleArtists,
+            Artist,
+            EndpointMultipleSearchResultWithImagesAndGenreLabeled<Artist>,
+            EndpointSearchResultBasicWithImagesAndGenreLabeledFactory<Artist>> ARTIST_BATCH_SEARCHER =
+            new BatchSearchMultipleEndpoint<>(
+                    TOKEN_MANAGER,
+                    20,
+                    new MultipleEndpoint<>(
+                            JSON_PROCESSOR,
+                            ENDPOINT_REQUEST,
+                            50,
+                            new EndpointSearchResultBasicWithImagesAndGenreLabeledFactory<>(),
+                            new SpotifyMultipleArtistsEndpointSearchResultWithImagesAndGenreLabeledFactoryFiller(),
+                            "https://api.spotify.com/v1/artists",
+                            SpotifyMultipleArtists.class)
+            );
+
+    static final BatchSearchMultipleEndpoint<
+            SpotifyMultipleAlbums,
+            Album,
+            EndpointMultipleSearchResultWithImages<Album>,
+            EndpointSearchResultBasicWithImagesFactory<Album>> ALBUM_BATCH_SEARCHER =
+            new BatchSearchMultipleEndpoint<>(TOKEN_MANAGER, 20, new MultipleEndpoint<>(
+                    JSON_PROCESSOR,
+                    ENDPOINT_REQUEST,
+                    20,
+                    new EndpointSearchResultBasicWithImagesFactory<>(),
+                    new SpotifyMultipleAlbumsEndpointSearchResultWithImagesFactoryFiller(),
+                    "https://api.spotify.com/v1/albums",
+                    SpotifyMultipleAlbums.class
+            ));
 
     // utility methods
 
-    private static InputStreamReader getInputStreamReaderFromResources(String path) {
-        System.out.println("inputStream reader from "+path);
+    private static InputStreamReader getInputStreamReaderFromResources() {
+        System.out.println("inputStream reader from "+ "/client-credentials.json");
         return new InputStreamReader(
                 Objects.requireNonNull(
-                        mainTest.class.getResourceAsStream(path)
+                        mainTest.class.getResourceAsStream("/client-credentials.json")
                 ),
                 StandardCharsets.UTF_8);
     }
 
-    private static <T> T fromJsonResource(String path, Class<T> tClass){
-        return GSON.fromJson(getInputStreamReaderFromResources(path), tClass);
+    private static ClientCredentials fromJsonResource(){
+        return GSON.fromJson(getInputStreamReaderFromResources(), ClientCredentials.class);
     }
 
 
-    private static Path existsOrCreateFolder(String thisYear) {
-        Path resolve = DB_FOLDER.resolve(thisYear);
+    private static Path existsOrCreateFolder(String folderName) {
+        Path resolve = DB_FOLDER.resolve(folderName);
         if (!Files.exists(resolve)){
             try {
                 Path result = Files.createDirectory(resolve);
@@ -128,17 +161,16 @@ public class FlowTest {
                 throw new RuntimeException(e);
             }
         }
-        System.out.println(thisYear+" exits");
-        if (resolve.getFileName().equals(Path.of("temp")) ||
-                resolve.getFileName().equals(Path.of("responses")) ) return resolve;
+        System.out.println(folderName+" exits");
+        if (folderName.equals("temp") ||
+                folderName.equals("responses") ) return resolve;
         System.out.println("not temp or responses");
-        System.out.println(thisYear.equals("music 2025"));
+        System.out.println(folderName.equals("music 2025"));
         System.out.println("with database?");
-        System.out.println(DATABASE.getDirectoriesTable().get(thisYear).get());
-        System.out.println(DATABASE.getDirectoriesTable().get(thisYear).isEmpty());
-        if (DATABASE.getDirectoriesTable().get(thisYear).isEmpty()) {
+        System.out.println(DATABASE.getDirectoriesTable().get(folderName).isEmpty());
+        if (DATABASE.getDirectoriesTable().get(folderName).isEmpty()) {
             System.out.println("adding to database");
-            addNewFolder(thisYear);
+            addNewFolder(folderName);
         }
         return resolve;
     }
@@ -202,6 +234,8 @@ public class FlowTest {
 
         Map<Integer, List<Integer>> trackArtistsIds = getTrackArtistsIds(trackArtists);
 
+        List<FileSong.Individual> individuals = DATABASE.getIndividualsTable().all();
+
         ItemsRepository itemsRepository = new ItemsRepository(
                 artists.stream().collect(Collectors.toMap(SimpleItem::id, a -> a)),
                 albums.stream().collect(Collectors.toMap(SimpleItem::id, a -> a)),
@@ -215,7 +249,7 @@ public class FlowTest {
                                         SimpleItem.ItemUri::type,
                                         toMap(SimpleItem.ItemUri::sourceId,i->i)
                                 ))));
-        FilesResponsesRepository filesResponsesRepository = FilesResponsesRepository.from(files,responses,new HashSet<>(sources));
+        FilesResponsesRepository filesResponsesRepository = FilesResponsesRepository.from(files,responses,new HashSet<>(sources), individuals);
 
         Map<Integer, List<Genre>> itemGenresIds = getItemGenresIds(itemGenres);
 
@@ -295,12 +329,10 @@ public class FlowTest {
         REPOSITORY.getDirectories().add(thisYear);
     }
 
-    private static void addResponseToDatabaseRepositoryResponsesFolder(List<FileSongResponseSpotifyTrackSearchResponse> results) {
-        System.out.println("results:"+results.size());
-        results.stream()
-                .peek(r -> JSON_PROCESSOR.write(r.result(),RESPONSES_FOLDER.resolve(r.response().nameWithExtension())))
-                .peek(r-> DATABASE.getResponsesTable().insert(r.response()))
-                .forEach(r->REPOSITORY.getFilesResponsesRepository().addResponse(r.fileSong(),r.response()));
+    private static void addResponseToDatabaseRepositoryResponsesFolder(FileSongResponseTrackSearchResultList result) {
+        JSON_PROCESSOR.write(result.result(),RESPONSES_FOLDER.resolve(result.response().nameWithExtension()));
+        DATABASE.getResponsesTable().insert(result.response());
+        REPOSITORY.getFilesResponsesRepository().addResponse(result.fileSong(),result.response());
     }
 
     private static List<SimpleItem.ItemUri> addItems(List<SimpleItem.ItemUri> items) {
@@ -322,7 +354,9 @@ public class FlowTest {
 
     private static void addAlbumArtists(List<Album.AlbumArtist> list) {
         list.stream()
+                .peek(aa-> System.out.println("inserting "+aa))
                 .map(aa -> DATABASE.getAlbumArtists().insert(aa))
+                .peek(aa-> System.out.println("inserted "+aa))
                 .forEach(aa->REPOSITORY.getItemsRepository().addArtistsAlbum(aa.artistsId(),aa.albumId()));
     }
 
@@ -332,24 +366,24 @@ public class FlowTest {
         );
     }
 
-    private static void addAlbumsGenres(List<Genre.ItemGenre> list){
-        list.stream().peek(ag-> DATABASE.getItemGenres().insert(ag)).forEach(
-                ag->REPOSITORY.getGenresRepository().addAlbumGenres(ag.item(),ag.genre())
-        );
-    }
-
     private static void addGenre(String g) {
         REPOSITORY.getGenresRepository().addGenre(DATABASE.getGenresTable().insert(new Genre(g)));
     }
 
-    private static void addTracks(List<FileSongResponseSpotifyTrack> results, ArtistsAndAlbumsResultListener.SearchResult albumsAndArtists) {
+    private static void addTracks(
+            List<FileSongResponseTrackSearchResult> results,
+            Map<String,Artist> artistsBySourceId,
+            Map<String, Album> albumsBySourceId) {
         List<SimpleItem.ItemUri> items = new ArrayList<>();
         Map<String, Track> tracksBySourceId = new HashMap<>();
         Map<String, Set<Genre>> trackGenresBySourceId = new HashMap<>();
         Map<String,List<Artist>> trackArtistsBySourceId = new HashMap<>();
 
+        System.out.println("using");
+        System.out.println(artistsBySourceId);
+        System.out.println(albumsBySourceId);
         System.out.println("filling");
-        fillListAndMapsOfTrackWithSpotifyTracksAndAlbumsAndArtists(results, albumsAndArtists, items, tracksBySourceId, trackGenresBySourceId, trackArtistsBySourceId);
+        fillListAndMapsOfTrackWithSpotifyTracksAndAlbumsAndArtists(results, artistsBySourceId,albumsBySourceId , items, tracksBySourceId, trackGenresBySourceId, trackArtistsBySourceId);
 
         List<Genre.ItemGenre> trackGenres = new ArrayList<>();
         List<Track.TrackArtist> trackArtists = new ArrayList<>();
@@ -370,7 +404,7 @@ public class FlowTest {
                 new FileSongStatusToAddedResponse(
                         r.fileSong(),
                         r.response().status(),
-                        RESPONSE_STATUS_UPDATER.updateStatus(Response.Status.added, r.response()))).toList();
+                        RESPONSE_STATUS_UPDATER.updateStatus(r.response(), Response.Status.added))).toList();
         updateResponsesToAdded(fileSongStatusToAddedResponses);
     }
 
@@ -389,10 +423,22 @@ public class FlowTest {
         trackArtists.forEach(ta-> REPOSITORY.getItemsRepository().addTrackArtist(ta.trackId(),ta.artistsId()));
     }
 
+    private static void addItemWebImages(List<ImageRef.ItemImageRef> images) {
+        System.out.println("adding images");
+        images.forEach(i->{
+            System.out.println(i+ " inserting");
+            DATABASE.getWebImagesTable().insert(i);
+            System.out.println(i+"inserted in database");
+            REPOSITORY.getImagesRepository().addWebImage(i);
+            System.out.println("inserted in repo");
+        });
+    }
+
     /**
      * FLOW /////////////////////// /////////////////////// /////////////////////// ///////////////////////
      */
 
+    //TODO -> Control of flow for when there's not new fileSongs to be searched
     public static void main(String[] args) {
         System.out.println("waiting 10 seconds for initialization");
         try {
@@ -411,65 +457,116 @@ public class FlowTest {
             requestFileSongs(fileSongs); // jump to selection(List<FileSongResponseSpotifyTrackSearchResponse> requestedData)
             System.out.println("returned from requested");
         } else {
-            Flow actionFlow = chooseFilter();
-            FilesResponsesRepository filteredByDirectory = REPOSITORY.getFilesResponsesRepository().filterByDirectory(read.directory());
-            switch (actionFlow) {
-                case NO_RESPONSE -> {
-                    requestFileSongs(List.copyOf(filteredByDirectory.filesWithoutResponse()));
-                    System.out.println("returned from requested");
-
+            String directory = read.directory();
+            boolean somethingIsProcessing = ChooseFlowFromDatabase(directory);
+            while (!somethingIsProcessing){
+                System.out.println("want to check another filter? yes/no");
+                if (readText().equals("yes")) somethingIsProcessing = ChooseFlowFromDatabase(directory);
+                System.out.println("wan to check another directory in the database? yes/no");
+                if (readText().equals("yes")) {
+                    somethingIsProcessing = ChooseFlowFromDatabase(readFromDatabase().directory());
                 }
-
-                case NOT_CHECKED -> {
-                    List<FileSongResponseSpotifyTrackSearchResponse> list = filteredByDirectory.filterByResponseStatus(Response.Status.not_checked).toMap().entrySet().stream()
-                            .map(e -> new FileSongResponseSpotifyTrackSearchResponse(
-                                            e.getKey(),
-                                            e.getValue(),
-                                            readResponseOf(e.getValue())
-                                    )
-                            ).toList();
-                    selection(list);
-                }
-                case NOT_CONTAINED -> {
-                    FilesResponsesRepository filesResponsesRepository = filteredByDirectory.filterByResponseStatus(Response.Status.checked_not_contained);
-                    notContainedFlow(filesResponsesRepository.toMap()); //todo...
-                }
-
-                case CONTAINED_NOT_ADDED -> {
-                    FilesResponsesRepository filesResponsesRepository = filteredByDirectory.filterByResponseStatus(Response.Status.checked_contained);
-                    Set<String> albumsId = new HashSet<>();
-                    Set<String> artistsId = new HashSet<>();
-
-                    List<FileSongResponseSpotifyTrack> list =
-                            filesResponsesRepository.toMap().entrySet().stream()
-                                .peek(entry-> System.out.println(DB_FOLDER.resolve(entry.getValue().directory()).resolve(entry.getValue().nameWithExtension())))
-                                .map(entry ->
-                                        new FileSongResponseSpotifyTrack(
-                                            entry.getKey(),
-                                            entry.getValue(),
-                                            JSON_PROCESSOR.read(
-                                                    SpotifyTrack.class,
-                                                    DB_FOLDER.resolve(entry.getValue().directory()).resolve(entry.getValue().nameWithExtension()))
-                                        ))
-                                .peek(t-> System.out.println(t.spotifyTrack().getName()))
-                                .toList();
-                    extractArtistsAndAlbumsFromFileSongResponseSpotifyTrack(list,albumsId,artistsId);
-                    startRequestForArtistsAndAlbums(albumsId,list,artistsId);
-                }
+                somethingIsProcessing = true;
             }
         }
 
-        try {
-            COUNT_DOWN_LATCH_FOR_FINISHED_FLOWS.await();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
         System.out.println("ending token manager?");
+        DATABASE.close();
         TOKEN_MANAGER.end();
     }
 
-    private static SpotifyTrackSearchResponse readResponseOf(Response value) {
-        return JSON_PROCESSOR.read(SpotifyTrackSearchResponse.class,RESPONSES_FOLDER.resolve(value.nameWithExtension()));
+    private static boolean ChooseFlowFromDatabase(String directory) {
+        Flow actionFlow = chooseFilter();
+        FilesResponsesRepository filteredByDirectory = REPOSITORY.getFilesResponsesRepository().filterByDirectory(directory);
+        switch (actionFlow) {
+            case NO_RESPONSE -> {
+                List<FileSong> fileSongs = filteredByDirectory.filesWithoutResponse();
+                if (fileSongs.isEmpty()) {
+                    System.out.println("there's no files to be requested in this directory, returning");
+                    return false;
+                }
+                requestFileSongs(fileSongs);
+                System.out.println("returned from requested");
+                return true;
+            }
+
+            case NOT_CHECKED -> {
+                List<FileSongResponseTrackSearchResultList> list = filteredByDirectory.filterByResponseStatus(Response.Status.not_checked).toMap().entrySet().stream()
+                        .map(e -> new FileSongResponseTrackSearchResultList(
+                                        e.getKey(),
+                                        e.getValue(),
+                                        readResponseOf(e.getValue())
+                                )
+                        ).toList();
+                if (list.isEmpty()) {
+                    System.out.println("there's no files to be checked in this directory, returning");
+                    return false;
+                }
+                selection(list);
+                return true;
+            }
+            case NOT_CONTAINED -> {
+                FilesResponsesRepository filesResponsesRepository = filteredByDirectory.filterByResponseStatus(Response.Status.checked_not_contained);
+                Map<FileSong, Response> map = filesResponsesRepository.toMap();
+                if (map.isEmpty()) {
+                    System.out.println("there's no files to be rechecked (not contained) in this directory, returning");
+                    return false;
+                }
+                notContainedFlow(map); //todo...
+                return true;
+            }
+
+            case CONTAINED_NOT_ADDED -> {
+                FilesResponsesRepository filesResponsesRepository = filteredByDirectory.filterByResponseStatus(Response.Status.checked_contained);
+                Set<String> albumsId = new HashSet<>();
+                Set<String> artistsId = new HashSet<>();
+                Map<String, Artist> existingArtistsBySourceId = new HashMap<>();
+                Map<String, Album> existingAlbumsBySourceId = new HashMap<>();
+
+
+                List<FileSongResponseTrackSearchResult> list =
+                        filesResponsesRepository.toMap().entrySet().stream()
+                            .peek(entry-> System.out.println(DB_FOLDER.resolve(entry.getValue().directory()).resolve(entry.getValue().nameWithExtension())))
+                            .map(entry ->
+                                    new FileSongResponseTrackSearchResult(
+                                        entry.getKey(),
+                                        entry.getValue(),
+                                        JSON_PROCESSOR.read(
+                                                TrackSearchResultList.TrackSearchResult.class,
+                                                DB_FOLDER.resolve(entry.getValue().directory()).resolve(entry.getValue().nameWithExtension()))
+                                    ))
+                            .peek(t-> System.out.println(t.trackSearchResult().trackName()))
+                            .toList();
+                if (list.isEmpty()){
+                    System.out.println("there's no files to be added in this directory, returning");
+                    return false;
+                }
+                extractArtistsAndAlbumsFromFileSongResponseTrackSearchResult(
+                        list,
+                        albumsId,
+                        artistsId,
+                        existingArtistsBySourceId,
+                        existingAlbumsBySourceId);
+
+                System.out.println(existingArtistsBySourceId);
+                System.out.println(artistsId);
+                System.out.println(existingAlbumsBySourceId);
+                System.out.println(albumsId);
+                startRequestForArtistsAndAlbums(
+                        albumsId,
+                        list,
+                        artistsId,
+                        existingArtistsBySourceId,
+                        existingAlbumsBySourceId);
+                return true;
+            }
+        }
+        System.err.println("it shouldn't be here");
+        return false;
+    }
+
+    private static TrackSearchResultList readResponseOf(Response value) {
+        return JSON_PROCESSOR.read(TrackSearchResultList.class,RESPONSES_FOLDER.resolve(value.nameWithExtension()));
     }
 
     /**
@@ -551,34 +648,26 @@ public class FlowTest {
      */
     private static void requestFileSongs(List<FileSong> fileSongs) {
         List<String> queries = fileSongs.stream().map(FileSong::request).toList();
-        BatchTrackSearch batchTrackSearch = new BatchTrackSearch(queries, TOKEN_MANAGER, 20, TRACK_SEARCH, createResponseObserverForFileSongRequest(fileSongs));
-        batchTrackSearch.start();
-        System.out.println("started track search, returning");
+        List<FileSongResponseTrackSearchResultList> results = new ArrayList<>();
+        TRACK_BATCH_SEARCHER.startNewBatchWith(queries,createResponseObserverOfTrackSearchResultList(fileSongs, results));
+        System.out.println("started track selection, returning");
+        selection(results);
     }
 
-    private static ResponsesObserver createResponseObserverForFileSongRequest(List<FileSong> fileSongs) {
-        List<FileSongResponseSpotifyTrackSearchResponse> results = new ArrayList<>();
-        return new ResponsesObserver() {
+    private static ResponseObserver<TrackSearchResultList> createResponseObserverOfTrackSearchResultList(List<FileSong> fileSongs, List<FileSongResponseTrackSearchResultList> results) {
+        return new ResponseObserver<>() {
             @Override
-            public void notify(String query, String responseBody) {
-                Optional<FileSong> first = fileSongs.stream().filter(f -> f.request().equals(query)).findFirst();
-                if (first.isPresent()) {
-                    FileSong fileSong = first.get();
-                    System.out.println("from:"+fileSong.name()+ " query:"+query);
-                    Response response = RESPONSE_CREATOR.createFrom(fileSong);
-                    SpotifyTrackSearchResponse spotifyTrackSearchResponse = JSON_PROCESSOR.fromJson(responseBody, SpotifyTrackSearchResponse.class);
-                    results.add(new FileSongResponseSpotifyTrackSearchResponse(fileSong, response, spotifyTrackSearchResponse));
-                } else {
-                    System.err.println("query:"+query+" found no match");
-                }
+            public void notify(TrackSearchResultList result) {
+                fileSongs.stream().filter(f->f.request().equals(result.query())).findFirst().ifPresent((f)->{
+                    FileSongResponseTrackSearchResultList record = new FileSongResponseTrackSearchResultList(f, RESPONSE_CREATOR.createFrom(f), result);
+                    addResponseToDatabaseRepositoryResponsesFolder(record);
+                    results.add(record);
+                });
             }
 
             @Override
-            public void finished() {
-                System.out.println("batch search finished -> storing data...");
-                addResponseToDatabaseRepositoryResponsesFolder(results);
-                System.out.println("!!! data stored !!!");
-                selection(results);
+            public void finish(CountDownLatch finisher) {
+                finisher.countDown();
             }
         };
     }
@@ -589,22 +678,22 @@ public class FlowTest {
      *
      */
 
-    private static void selection(List<FileSongResponseSpotifyTrackSearchResponse> requestedData){
-        List<FileSongResponseSpotifyTrack> results = new ArrayList<>();
+    private static void selection(List<FileSongResponseTrackSearchResultList> requestedData){
+        List<FileSongResponseTrackSearchResult> results = new ArrayList<>();
         requestedData.forEach(data -> {
-            if (data.result().tracks().items().isEmpty()){
+            if (data.result().tracks().isEmpty()){
                 markAsCheckedNotContained(data);
             } else {
                 // table view:
                 System.out.println("\n\n///////////////// Table ///////////////////");
                 System.out.println("entries for:"+ data.fileSong().name());
                 cellViewFor(data.result());
-                Optional<SpotifyTrack> selected =  selectTrack(data.result());
+                Optional<TrackSearchResultList.TrackSearchResult> selected =  selectTrack(data.result());
                 selected.ifPresentOrElse(
-                        spotifyTrack-> {
-                            results.add(new FileSongResponseSpotifyTrack(data.fileSong(), data.response(), spotifyTrack));
+                        trackSearchResult-> {
+                            results.add(new FileSongResponseTrackSearchResult(data.fileSong(), data.response(), trackSearchResult));
                             markAsCheckedAndContained(data);
-                            rewriteJson(data.response(), spotifyTrack);
+                            rewriteJson(data.response(), trackSearchResult);
                         },
                         () -> markAsCheckedNotContained(data)
                         );
@@ -614,51 +703,83 @@ public class FlowTest {
         // no doppelgangers
         Set<String> albumsId = new HashSet<>();
         Set<String> artistsId = new HashSet<>();
-        extractArtistsAndAlbumsFromFileSongResponseSpotifyTrack(results, albumsId, artistsId);
+        Map<String, Artist> existingArtistBySourceId = new HashMap<>();
+        Map<String, Album> existingAlbumsBySourceID = new HashMap<>();
+        
+        extractArtistsAndAlbumsFromFileSongResponseTrackSearchResult(results, albumsId, artistsId, existingArtistBySourceId, existingAlbumsBySourceID);
 
         // first request artists, then albums, so the observers need access to resources in the opposite order
         // when artist batch search is finished, it will call another function which will start the batch album search
         // when the batch album search is finished, it will call another function to add the tracks to the database,
         // given that both, artists and album will exist in the database
 
-        startRequestForArtistsAndAlbums(albumsId, results, artistsId);
+        startRequestForArtistsAndAlbums(
+                albumsId,
+                results,
+                artistsId,
+                existingArtistBySourceId,
+                existingAlbumsBySourceID);
     }
 
-    private static void extractArtistsAndAlbumsFromFileSongResponseSpotifyTrack(List<FileSongResponseSpotifyTrack> results, Set<String> albumsId, Set<String> artistsId) {
+    private static void extractArtistsAndAlbumsFromFileSongResponseTrackSearchResult(
+            List<FileSongResponseTrackSearchResult> results,
+            Set<String> albumsId,
+            Set<String> artistsId,
+            Map<String, Artist> ArtistsBySourceId,
+            Map<String, Album> AlbumsBySourceId) {
         results.forEach(r->{
-            // filtering already existing in the database/repository
-            if (REPOSITORY
-                    .getItemsRepository()
-                    .getItemUriID(Database.ItemSource.spotify, SimpleItem.ItemType.album,r.spotifyTrack().getAlbum().getId())
-                    .isEmpty()) {
-                albumsId.add(r.spotifyTrack().getAlbum().getId());
-            }
-            r.spotifyTrack().getAlbum().getArtists().stream()
-                    .map(SpotifySimplifiedObject::getId)
-                    .filter(a-> REPOSITORY.getItemsRepository().getItemUriID(Database.ItemSource.spotify, SimpleItem.ItemType.artist,a).isEmpty())
-                    .forEach(artistsId::add);
-            r.spotifyTrack().getArtists().stream()
-                    .map(SpotifySimplifiedObject::getId)
-                    .filter(a-> REPOSITORY.getItemsRepository().getItemUriID(Database.ItemSource.spotify, SimpleItem.ItemType.artist,a).isEmpty())
-                    .forEach(artistsId::add);
+            
+            REPOSITORY.getItemsRepository()
+                    .getAlbumUriByItem(Database.ItemSource.spotify,r.trackSearchResult().albumId())
+                    .ifPresentOrElse(
+                            a->{
+                                System.out.println("album:"+a.id()+"a already in database");
+                                AlbumsBySourceId.put(r.trackSearchResult().albumId(), a);
+                                r.trackSearchResult().albumArtistsIds().forEach(id-> REPOSITORY.getItemsRepository()
+                                        .getArtistUriByItem(Database.ItemSource.spotify,id)
+                                        .ifPresent(artist ->
+                                                ArtistsBySourceId
+                                                        .putIfAbsent(id, artist) ));
+                            },
+                            ()->{
+                                albumsId.add(r.trackSearchResult().albumId());
+                                checkArtistsAndAddIfNotInDatabase(artistsId, ArtistsBySourceId, r.trackSearchResult().albumArtistsIds());
+                            }
+                            );
+            checkArtistsAndAddIfNotInDatabase(artistsId, ArtistsBySourceId, r.trackSearchResult().artistsId());
         });
     }
 
-    private static void rewriteJson(Response response, SpotifyTrack spotifyTrack) {
-        JSON_PROCESSOR.write(spotifyTrack,RESPONSES_FOLDER.resolve(response.nameWithExtension()));
+    private static void checkArtistsAndAddIfNotInDatabase(Set<String> artistsId, Map<String, Artist> ArtistsBySourceId, List<String> artistsToCheck) {
+        artistsToCheck.stream()
+                .map(a-> Map.entry(a,REPOSITORY.getItemsRepository().getArtistUriByItem(Database.ItemSource.spotify, a)))
+                .forEach(e-> e.getValue().ifPresentOrElse(
+                        artist-> {
+                            System.out.println("artist:"+artist.id()+" already in database");
+                            ArtistsBySourceId
+                                    .putIfAbsent(e.getKey(), artist);
+                        } ,
+                        ()->{
+                            System.out.println("artist not in database, adding to search:"+e.getKey());
+                            artistsId.add(e.getKey());
+                        }
+                ));
     }
 
-    private static void markAsCheckedAndContained(FileSongResponseSpotifyTrackSearchResponse data) {
-        Response response = RESPONSE_STATUS_UPDATER.updateStatus(Response.Status.checked_contained,data.response());
+    private static void rewriteJson(Response response, TrackSearchResultList.TrackSearchResult TrackSearchResult) {
+        JSON_PROCESSOR.write(TrackSearchResult,RESPONSES_FOLDER.resolve(response.nameWithExtension()));
+    }
+
+    private static void markAsCheckedAndContained(FileSongResponseTrackSearchResultList data) {
+        Response response = RESPONSE_STATUS_UPDATER.updateStatus(data.response(), Response.Status.checked_contained);
         updateResponseFromNotChecked(data.fileSong(), response);
     }
 
-    private static Optional<SpotifyTrack> selectTrack(SpotifyTrackSearchResponse result) {
-
+    private static Optional<TrackSearchResultList.TrackSearchResult> selectTrack(TrackSearchResultList result) {
         System.out.println("chose track by id or mark as 'not contained':");
         String s = readText();
-        if (result.tracks().items().stream().anyMatch(t-> t.getId().equals(s))) {
-            return result.tracks().items().stream().filter(t-> t.getId().equals(s)).findFirst();
+        if (result.tracks().stream().anyMatch(t-> t.trackId().equals(s))) {
+            return result.tracks().stream().filter(t-> t.trackId().equals(s)).findFirst();
         } else if (s.equals("not contained")) {
             return Optional.empty();
         } else {
@@ -667,21 +788,21 @@ public class FlowTest {
         }
     }
 
-    private static void cellViewFor(SpotifyTrackSearchResponse result) {
-        result.tracks().items().forEach(i -> {
+    private static void cellViewFor(TrackSearchResultList result) {
+        result.tracks().forEach(i -> {
             System.out.println("////////////////////////////////////");
-            System.out.println("id: "+i.getId());
-            System.out.println("name: "+i.getName());
-            System.out.println("spotify: "+i.getExternal_urls().spotify());
-            System.out.println("album id: "+i.getAlbum().getId());
-            System.out.println("album spotify: "+i.getAlbum().getExternal_urls().spotify());
-            System.out.println("first artist id: "+i.getArtists().getFirst().getId());
-            System.out.println("first artist spotify: "+i.getArtists().getFirst().getExternal_urls().spotify());
+            System.out.println("id: "+i.trackId());
+            System.out.println("name: "+i.trackName());
+            System.out.println("spotify: "+i.trackUrl());
+            System.out.println("album id: "+i.albumId());
+            System.out.println("album spotify: "+i.albumUrl());
+            System.out.println("first artist id: "+i.artistsId().getFirst());
+            System.out.println("first artist spotify: "+i.artistsUrl().getFirst());
         });
     }
 
-    private static void markAsCheckedNotContained(FileSongResponseSpotifyTrackSearchResponse data) {
-        Response response = RESPONSE_STATUS_UPDATER.updateStatus(Response.Status.checked_not_contained,data.response());
+    private static void markAsCheckedNotContained(FileSongResponseTrackSearchResultList data) {
+        Response response = RESPONSE_STATUS_UPDATER.updateStatus(data.response(), Response.Status.checked_not_contained);
         updateResponseFromNotChecked(data.fileSong(), response);
     }
 
@@ -691,175 +812,150 @@ public class FlowTest {
      * 4. SEARCH ARTISTS AND ALBUMS, THEN ADD TRACK
      */
 
-    private static void startRequestForArtistsAndAlbums(Set<String> albumsId, List<FileSongResponseSpotifyTrack> results, Set<String> artistsId) {
-        ArtistsAndAlbumsResultListener listener = createSearchResultListenerForBatches();
-
-        BatchSearch batchAlbumSearch =
-                new BatchAlbumSearch(
-                        List.copyOf(albumsId),
-                        TOKEN_MANAGER,
-                        20,
-                        MULTIPLE_ALBUM_SEARCH,
-                        createResponseObserverForAlbumsRequest(results, listener));
-        BatchSearch batchArtistSearch =
-                new BatchArtistSearch(
-                        List.copyOf(artistsId),
-                        TOKEN_MANAGER,
-                        20,
-                        MULTIPLE_ARTIST_SEARCH,
-                        createResponseObserverForArtistsRequest(batchAlbumSearch, listener));
+    private static void startRequestForArtistsAndAlbums(
+            Set<String> albumsId,
+            List<FileSongResponseTrackSearchResult> results,
+            Set<String> artistsId,
+            Map<String, Artist> existingArtistsBySourceId,
+            Map<String, Album> existingAlbumsBySourceId
+    ) {
 
         if (!artistsId.isEmpty()) {
-            System.out.println("starting artists search");
-            batchArtistSearch.start();
+            System.out.println("searching artists:"+artistsId);
+            ARTIST_BATCH_SEARCHER.startNewBatchWith(List.copyOf(artistsId),
+                    createResponseObserverForArtistsBatchSearchWithMultipleEndpoint(existingArtistsBySourceId));
         }
-        else {
-            System.out.println("no new artists, starting albums search");
-            batchAlbumSearch.start();
+
+        if (!albumsId.isEmpty()) {
+            System.out.println("searching albums+:"+albumsId);
+            ALBUM_BATCH_SEARCHER.startNewBatchWith(List.copyOf(albumsId),
+                    crateResponseObserverForAlbumsBatchSearchWithMultipleEndpoint(
+                            existingAlbumsBySourceId, existingArtistsBySourceId, results));
         }
+
+        System.out.println("sending:");
+        System.out.println(existingArtistsBySourceId);
+        System.out.println(existingAlbumsBySourceId);
+        addTracks(results,existingArtistsBySourceId,existingAlbumsBySourceId);
+
     }
 
-    private static ArtistsAndAlbumsResultListener createSearchResultListenerForBatches() {
-        return new ArtistsAndAlbumsResultListener() {
-            final List<SimpleItem.ItemUri> artistsUris = new ArrayList<>();
-            final List<SimpleItem.ItemUri> albumsUris = new ArrayList<>();
-            final List<Artist> artists = new ArrayList<>();
-            final List<Album> albums = new ArrayList<>();
+    private static ResponseObserver<EndpointMultipleSearchResultWithImages<Album>>
+    crateResponseObserverForAlbumsBatchSearchWithMultipleEndpoint(
+            Map<String, Album> albumsBySourceId, Map<String, Artist> artistsBySourceId, List<FileSongResponseTrackSearchResult> results) {
+        return new ResponseObserver<>() {
             @Override
-            public void setArtists(List<Artist> artists) {
-                this.artists.addAll(artists);
-            }
-
-            @Override
-            public void setAlbums(List<Album> albums) {
-                this.albums.addAll(albums);
-            }
-
-            @Override
-            public void setArtistURIs(List<SimpleItem.ItemUri> uris) {
-                this.artistsUris.addAll(uris);
-            }
-
-            @Override
-            public void setAlbumURIs(List<SimpleItem.ItemUri> uris) {
-                this.albumsUris.addAll(uris);
-            }
-
-            @Override
-            public SearchResult get() {
-                return new SearchResult(
-                        this.artists.stream().collect(Collectors.toMap(SimpleItem::id,a->a)),
-                        this.albums.stream().collect(Collectors.toMap(SimpleItem::id,a->a)),
-                        this.artistsUris.stream().collect(Collectors.toMap(SimpleItem.ItemUri::sourceId, a->a)),
-                        this.albumsUris.stream().collect(Collectors.toMap(SimpleItem.ItemUri::sourceId, a->a)));
-            }
-        };
-    }
-
-    private static ResponsesObserver createResponseObserverForAlbumsRequest(List<FileSongResponseSpotifyTrack> results, ArtistsAndAlbumsResultListener listener) {
-        List<SimpleItem.ItemUri> items = new ArrayList<>();
-        Map<String,List<Genre>> albumGenres = new HashMap<>();
-        Map<String,List<Artist>> albumArtistMap = new HashMap<>();
-        HashMap<String, Album> albums = new HashMap<>();
-        return new ResponsesObserver() {
-            @Override
-            public void notify(String query, String responseBody) {
-                System.out.println("query:"+query);
-                SpotifyMultipleAlbums spotifyMultipleArtists = JSON_PROCESSOR.fromJson(responseBody, SpotifyMultipleAlbums.class);
-                System.out.println(spotifyMultipleArtists.albums().size());
-                spotifyMultipleArtists.albums().stream()
-                        .peek(a->items.add(new SimpleItem.ItemUri(0, Database.ItemSource.spotify, SimpleItem.ItemType.album, a.getId())))
-                        .peek(a-> System.out.println("added as item temporally:"+a.getId()))
-                        .peek(spotifyAlbum-> albumGenres.put(
-                                spotifyAlbum.getId(),
-                                List.copyOf(
-                                        spotifyAlbum.getArtists().stream()
-                                                .map(spotifyArtist ->
-                                                        REPOSITORY
-                                                                .getItemsRepository()
-                                                                .getArtistUriByItem(
-                                                                        Database.ItemSource.spotify,
-                                                                        spotifyArtist.getId()
-                                                                )
-                                                )
-                                                .filter(Optional::isPresent)
-                                                .map(Optional::get)
-                                                .peek(artist -> {
-                                                            albumArtistMap.putIfAbsent(spotifyAlbum.getId(), new ArrayList<>());
-                                                            albumArtistMap.get(spotifyAlbum.getId()).add(artist);
-                                                        }
-                                                )
-                                                .flatMap(artist ->
-                                                        REPOSITORY.getGenresRepository().artistGenres(artist).stream()
-                                                )
-                                                .collect(toSet())
-                                )
-                        )
-                        )
-                        .forEach(spotifyAlbum -> albums.put(spotifyAlbum.getId(),new SpotifyAlbumAdapter(spotifyAlbum)));
-                System.out.println("added temporary albums");
-            }
-
-            @Override
-            public void finished() {
-                System.out.println("adding albums");
-                List<SimpleItem.ItemUri> itemsWithId = addItems(items);
-                Map<Integer,Album> albumMap = new HashMap<>();
-                List<Album> albumList = itemsWithId.stream()
-                        .map(i -> ITEM_ID_UPDATER.update(i.id(), albums.get(i.sourceId())))
-                        .peek(a-> albumMap.put(a.id(),a))
+            public void notify(EndpointMultipleSearchResultWithImages<Album> result) {
+                System.out.println("albums notified");
+                List<SimpleItem.ItemUri> itemsWithId = addItems(result.itemsUris());
+                System.out.println("added items");
+                List<Album> list = itemsWithId
+                        .stream()
+                        .map(i -> ITEM_ID_UPDATER.update(i.id(), result.items().get(i.sourceId())))
                         .toList();
-                addAlbum(albumList);
-                addAlbumArtists(itemsWithId.stream()
-                        .map(i->Map.entry(albumMap.get(i.id()),albumArtistMap.get(i.sourceId())))
-                        .flatMap(e->e.getValue().stream().map(artist -> new Album.AlbumArtist(e.getKey().id(),artist.id())))
-                        .toList()
-                );
-                addAlbumsGenres(getItemGenresFromItemUriAndSourceIdWithGenres(itemsWithId, albumGenres));
-                listener.setAlbums(albumList);
-                listener.setAlbumURIs(itemsWithId);
-                System.out.println("adding tracks");
-                addTracks(results,listener.get());
-                //todo -> redirect to not Contained
-                System.out.println("normal flow finished");
-                COUNT_DOWN_LATCH_FOR_FINISHED_FLOWS.countDown();
-                System.out.println("new flow?");
-                //notContainedFlow();
+                addAlbum(list);
+                System.out.println("added albums");
+                for (int i = 0; i < itemsWithId.size(); i++) {
+                    System.out.println(itemsWithId.get(i).sourceId()+":"+list.get(i).id());
+                    albumsBySourceId.put(itemsWithId.get(i).sourceId(),list.get(i));
+                }
+                List<Album.AlbumArtist> albumArtists = results.stream().map(FileSongResponseTrackSearchResult::trackSearchResult)
+                        .peek(r-> r.albumArtistsIds().forEach(a->{
+                            System.out.println("album:"+r.albumId()+" artist:"+a+":"+artistsBySourceId.get(a).id());
+                        }))
+                        .map(r -> Map.entry(r.albumId(), r.albumArtistsIds()))
+                        .flatMap(e ->
+                                e.getValue().stream()
+                                        .peek(artistId -> System.out.println("artist"+":"+artistId+":"+artistsBySourceId.get(artistId).id()))
+                                        .map(
+                                        artistId -> new Album.AlbumArtist(albumsBySourceId.get(e.getKey()).id(), artistsBySourceId.get(artistId).id()))
+                        ).toList();
+                System.out.println(albumArtists);
+                addAlbumArtists(albumArtists);
+                System.out.println("added relations");
+                List<ImageRef.ItemImageRef> itemImagesFromItemUriAndSourceWithId = getItemImagesFromItemUriAndSourceWithId(itemsWithId, result.images());
+                System.out.println(JSON_PROCESSOR.toJson(itemImagesFromItemUriAndSourceWithId));
+                addItemWebImages(itemImagesFromItemUriAndSourceWithId);
+                System.out.println("added  images");
+            }
+
+            @Override
+            public void finish(CountDownLatch finisher) {
+                finisher.countDown();
             }
         };
     }
 
+    private static ResponseObserver<EndpointMultipleSearchResultWithImagesAndGenreLabeled<Artist>> createResponseObserverForArtistsBatchSearchWithMultipleEndpoint(Map<String, Artist> artistsBySourceId) {
+        return new ResponseObserver<>() {
 
-    private static void fillListAndMapsOfTrackWithSpotifyTracksAndAlbumsAndArtists(List<FileSongResponseSpotifyTrack> results,
-                                                                                   ArtistsAndAlbumsResultListener.SearchResult albumsAndArtists,
+            @Override
+            public void notify(EndpointMultipleSearchResultWithImagesAndGenreLabeled<Artist> result) {
+                List<SimpleItem.ItemUri> itemsWithId = addItems(result.itemsUris());
+                List<Artist> list = itemsWithId
+                        .stream()
+                        .map(i -> ITEM_ID_UPDATER.update(i.id(), result.items().get(i.sourceId())))
+                        .toList();
+                addArtists(list);
+                for (int i = 0; i < itemsWithId.size(); i++) {
+                    artistsBySourceId.put(itemsWithId.get(i).sourceId(),list.get(i));
+                }
+
+                result.genres().stream().filter(g -> !REPOSITORY.getGenresRepository().containsGenre(g)).forEach(g -> addGenre(g.name()));
+                List<Genre.ItemGenre> itemGenresFromItemUriAndSourceIdWithGenres =
+                        getItemGenresFromItemUriAndSourceIdWithGenres(itemsWithId,  result.itemGenres());
+                System.out.println("obtained genres");
+                addArtistsGenres(itemGenresFromItemUriAndSourceIdWithGenres);
+                System.out.println("added genres ");
+                addItemWebImages(getItemImagesFromItemUriAndSourceWithId(itemsWithId, result.images()));
+                System.out.println("added  images");
+            }
+
+            @Override
+            public void finish(CountDownLatch finisher) {
+                finisher.countDown();
+            }
+        };
+    }
+
+    private static List<ImageRef.ItemImageRef> getItemImagesFromItemUriAndSourceWithId(List<SimpleItem.ItemUri> itemsWithId, Map<String, List<ImageRef>> imagesRefs) {
+        return itemsWithId.stream().filter(i->imagesRefs.containsKey(i.sourceId()))
+                .flatMap(i->imagesRefs.get(i.sourceId()).stream().map(ref->new ImageRef.ItemImageRef(i.id(),ref.url(),ref.height(),ref.width()))).toList();
+    }
+
+
+    private static void fillListAndMapsOfTrackWithSpotifyTracksAndAlbumsAndArtists(List<FileSongResponseTrackSearchResult> results,
+                                                                                   Map<String, Artist> artistsBySourceId, Map<String, Album> albumsBySourceId,
                                                                                    List<SimpleItem.ItemUri> items,
                                                                                    Map<String, Track> tracksBySourceId,
                                                                                    Map<String, Set<Genre>> trackGenresBySourceId,
                                                                                    Map<String, List<Artist>> trackArtistsBySourceId) {
-        results.forEach(
-                fileSongResponseSpotifyTrack -> {
-                    List<Artist> trackArtists = fileSongResponseSpotifyTrack.spotifyTrack().getArtists()
-                            .stream().map(SpotifySimplifiedObject::getId).map(stringId -> {
-                                if (albumsAndArtists.artistsUris().containsKey(stringId)) {
-                                    System.out.println("from album artists uris");
-                                    Artist artist = albumsAndArtists.artists().get(albumsAndArtists.artistsUris().get(stringId).id());
-                                    System.out.println("artist"+artist);
-                                    return artist;
-                                }
-                                REPOSITORY.getItemsRepository().getArtistUriByItem(Database.ItemSource.spotify, stringId).ifPresentOrElse(a-> System.out.println("artist:"+a.name()),()-> System.out.println("not found"));
-                                return REPOSITORY.getItemsRepository().getArtistUriByItem(Database.ItemSource.spotify, stringId).orElseThrow(() -> new RuntimeException("for:" + fileSongResponseSpotifyTrack.fileSong().name() + " artist from spotify:" + stringId + " wasn't added"));
-                            })
-                            .toList();
-                    Album trackAlbum;
-                    if (albumsAndArtists.albumsUris().containsKey(fileSongResponseSpotifyTrack.spotifyTrack().getAlbum().getId())) trackAlbum = albumsAndArtists.albums().get(albumsAndArtists.albumsUris().get(fileSongResponseSpotifyTrack.spotifyTrack().getAlbum().getId()).id());
-                    else trackAlbum =  REPOSITORY.getItemsRepository().getAlbumUriByItem(Database.ItemSource.spotify, fileSongResponseSpotifyTrack.spotifyTrack().getAlbum().getId()).orElseThrow(() -> new RuntimeException("for:" + fileSongResponseSpotifyTrack.fileSong().name() + " album from spotify:" + fileSongResponseSpotifyTrack.spotifyTrack().getAlbum().getId() + " wasn't added"));
-                    Set<Genre> trackGenres = trackArtists.stream().flatMap(a-> REPOSITORY.getGenresRepository().artistGenres(a).stream()).collect(toSet());
-                    Track track = new SpotifyTrackAdapter(fileSongResponseSpotifyTrack.spotifyTrack(), fileSongResponseSpotifyTrack.fileSong(), trackAlbum);
+        System.out.println(artistsBySourceId);
+        System.out.println(albumsBySourceId);
 
-                    items.add(new SimpleItem.ItemUri(0, Database.ItemSource.spotify, SimpleItem.ItemType.track, fileSongResponseSpotifyTrack.spotifyTrack().getId()));
-                    tracksBySourceId.put(fileSongResponseSpotifyTrack.spotifyTrack().getId(),track);
-                    trackGenresBySourceId.put(fileSongResponseSpotifyTrack.spotifyTrack().getId(),trackGenres);
-                    trackArtistsBySourceId.put(fileSongResponseSpotifyTrack.spotifyTrack().getId(), trackArtists);
+        results.forEach(
+                fileSongResponseTrackSearchResult -> {
+                    List<Artist> trackArtists = fileSongResponseTrackSearchResult.trackSearchResult()
+                            .artistsId().stream()
+                            .peek(ai-> System.out.println("artist:"+ai+":"+artistsBySourceId.get(ai)))
+                            .map(artistsBySourceId::get).peek(a-> {
+                                if (a == null) {
+                                    System.err.println("an artist was null");
+                                }
+                            }).toList();
+                    Album trackAlbum = albumsBySourceId
+                            .get(fileSongResponseTrackSearchResult.trackSearchResult().albumId());
+                    if (trackAlbum == null) {
+                        System.err.println("the album is not in the map");
+                    }
+
+                    Set<Genre> trackGenres = trackArtists.stream().flatMap(a-> REPOSITORY.getGenresRepository().artistGenres(a).stream()).collect(toSet());
+                    Track track = new TrackSearchResultAdapter(fileSongResponseTrackSearchResult.trackSearchResult(), fileSongResponseTrackSearchResult.fileSong(), trackAlbum);
+
+                    items.add(new SimpleItem.ItemUri(0, Database.ItemSource.spotify, SimpleItem.ItemType.track, fileSongResponseTrackSearchResult.trackSearchResult().trackId()));
+                    tracksBySourceId.put(fileSongResponseTrackSearchResult.trackSearchResult().trackId(),track);
+                    trackGenresBySourceId.put(fileSongResponseTrackSearchResult.trackSearchResult().trackId(),trackGenres);
+                    trackArtistsBySourceId.put(fileSongResponseTrackSearchResult.trackSearchResult().trackId(), trackArtists);
 
                 }
         );
@@ -881,54 +977,6 @@ public class FlowTest {
         return list;
     }
 
-    private static ResponsesObserver createResponseObserverForArtistsRequest(BatchSearch batchAlbumSearch, ArtistsAndAlbumsResultListener listener) {
-        Map<String,List<Genre>> artistGenres = new HashMap<>();
-        List<SimpleItem.ItemUri> items = new ArrayList<>();
-        HashMap<String, Artist> artists = new HashMap<>();
-        return new ResponsesObserver() {
-            @Override
-            public void notify(String query, String responseBody) {
-                System.out.println("query:"+query);
-                SpotifyMultipleArtists spotifyMultipleArtists = JSON_PROCESSOR.fromJson(responseBody, SpotifyMultipleArtists.class);
-                spotifyMultipleArtists.artists().stream()
-                        .peek(a-> items.add(new SimpleItem.ItemUri(0, Database.ItemSource.spotify, SimpleItem.ItemType.artist,a.getId())))
-                        .peek(a-> a.getGenres().forEach(g->{
-                            if (!REPOSITORY.getGenresRepository().containsGenre(new Genre(g))) {
-                                System.out.println("adding genre:"+g);
-                                addGenre(g);}
-                            artistGenres.putIfAbsent(a.getId(),new ArrayList<>());
-                            artistGenres.get(a.getId()).add(new Genre(g));
-                        }))
-                        .forEach(a->artists.put(a.getId(),new SpotifyArtistAdapter(a)));
-                System.out.println("added to temporary lists and maps"+query);
-            }
-
-            @Override
-            public void finished() {
-                System.out.println("finished search for artists");
-                List<SimpleItem.ItemUri> itemsWithId = addItems(items);
-                System.out.println("added as item");
-                List<Artist> list = itemsWithId
-                        .stream()
-                        .map(i -> ITEM_ID_UPDATER.update(i.id(), artists.get(i.sourceId())))
-                        .toList();
-
-                addArtists(list);
-
-                System.out.println("added as artists");
-                System.out.println(artistGenres);
-                List<Genre.ItemGenre> itemGenresFromItemUriAndSourceIdWithGenres =
-                        getItemGenresFromItemUriAndSourceIdWithGenres(itemsWithId, artistGenres);
-                System.out.println("obtained genres");
-                addArtistsGenres(itemGenresFromItemUriAndSourceIdWithGenres);
-                System.out.println("added genres");
-                listener.setArtistURIs(itemsWithId);
-                listener.setArtists(list);
-                batchAlbumSearch.start();
-                System.out.println("added to data and repositories");
-            }
-        };
-    }
 
     /**
      * 5. NOT CONTAINED
@@ -938,18 +986,36 @@ public class FlowTest {
         /*  -´`'P.todo -> incoherence with current methods for normal flow,
              can't spread the "fromAnotherSource" once start the artist/album search
              */
-        System.out.println("bye, in process...");
-        /*
-        List<String> trackIds = new ArrayList<>();
-        Map<FileSong,Response> fromAnotherSource = new HashMap<>();
 
-        notContained.forEach((fileSong,response)->{
+        List<FileSong.FileSongResponseIndividualTrackId> individuals = new ArrayList<>();
+
+        map.forEach((fileSong,response)->{
             Optional<String> trackId = askForATrackIdOrMarkFromOtherSource();
-            trackId.ifPresentOrElse(trackIds::add,()->fromAnotherSource.put(fileSong,response));
+            trackId.ifPresentOrElse(
+                    (stringId)-> {
+                        individuals.add(new FileSong.FileSongResponseIndividualTrackId(fileSong, response, stringId));
+                        REPOSITORY
+                                .getFilesResponsesRepository()
+                                .addIndividual(
+                                        DATABASE
+                                                .getIndividualsTable()
+                                                .insert(new FileSong.Individual(fileSong.id(),stringId))
+                                );
+                    },
+                    ()-> REPOSITORY
+                            .getFilesResponsesRepository()
+                            .addFromAnotherSource(
+                                    DATABASE
+                                            .getSourcesTable()
+                                            .insert(fileSong.id())
+                            ));
         });
-         */
+
+        System.out.println("processing individual tracks");
+
 
     }
+
 
     private static Optional<String> askForATrackIdOrMarkFromOtherSource() {
         System.out.println("enter a track ID from the API or mark as 'other' if it's not in the api data:");

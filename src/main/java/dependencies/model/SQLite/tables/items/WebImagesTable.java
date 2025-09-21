@@ -1,4 +1,4 @@
-package dependencies.model.SQLite.tables.files;
+package dependencies.model.SQLite.tables.items;
 
 import app.model.items.ImageRef;
 import app.model.utilities.database.Database;
@@ -60,7 +60,7 @@ public class WebImagesTable implements Database.TableIntID<ImageRef.ItemImageRef
         INSERT INTO WEB_IMAGES(OBJECT, SOURCE, WIDTH, HEIGHT)
         VALUES (?, ?, ?, ?)
         """;
-        try (PreparedStatement stmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, item.item());
             stmt.setString(2, item.source());
             stmt.setInt(3, item.width());

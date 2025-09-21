@@ -177,7 +177,7 @@ public class ResponsesTable implements Database.UpdateTableIntID<Response> {
     }
 
     @Override
-    public Response update(Response item) {
+    public void update(Response item) {
         String sql = """
                 UPDATE RESPONSES SET STATUS = ? WHERE ID = ?
                 """;
@@ -189,6 +189,5 @@ public class ResponsesTable implements Database.UpdateTableIntID<Response> {
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
-        return item;
     }
 }

@@ -1,4 +1,4 @@
-package dependencies.model.SQLite.tables.files;
+package dependencies.model.SQLite.tables.items;
 
 import app.model.items.ItemImage;
 import app.model.utilities.database.Database;
