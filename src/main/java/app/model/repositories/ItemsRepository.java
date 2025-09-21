@@ -5,6 +5,7 @@ import app.model.utilities.database.Database;
 
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class ItemsRepository {
 
@@ -50,6 +51,17 @@ public class ItemsRepository {
                 !items.get(source).get(type).containsKey(sourceId)
         ) return Optional.empty();
         return Optional.of(items.get(source).get(type).get(sourceId).id());
+    }
+
+    public Map<String, Artist> getArtistsFrom(Database.ItemSource source){
+        if (items.containsKey(source)) return items.get(source).get(SimpleItem.ItemType.artist).values().stream().collect(
+                Collectors.toMap(SimpleItem.ItemUri::sourceId, i->artists.get(i.id()))
+        );
+        else return Map.of();
+    }
+
+    public List<Album> getArtistAlbums(Artist artist){
+        return artistsAlbums.get(artist.id()).stream().map(albums::get).toList();
     }
 
     public void addArtistsAlbum(Integer artistId, Integer albumId){

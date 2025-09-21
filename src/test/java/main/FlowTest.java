@@ -32,7 +32,7 @@ import app.model.utilities.database.Database;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import dependencies.control.JAudioTaggerMP3MetadataReader;
+import dependencies.control.metadata.JAudioTaggerMP3MetadataReader;
 import dependencies.control.spotify.search.spotifyTrackBatchSearcher;
 import dependencies.model.SQLite.MusicSQLiteDatabase;
 import dependencies.control.spotify.SpotifyTokenManager;
@@ -42,10 +42,12 @@ import dependencies.model.spotify.adapters.TrackSearchResultAdapter;
 import dependencies.model.spotify.api.*;
 import dependencies.model.spotify.api.factoryFillers.SpotifyMultipleAlbumsEndpointSearchResultWithImagesFactoryFiller;
 import dependencies.model.spotify.api.factoryFillers.SpotifyMultipleArtistsEndpointSearchResultWithImagesAndGenreLabeledFactoryFiller;
+import dependencies.model.spotify.api.factoryFillers.SpotifyMultipleTrackEndpointSearchResultFactoryFiller;
 import dependencies.model.spotify.auth.ClientCredentials;
 import dependencies.model.spotify.auth.TokenRequest;
 import dependencies.model.spotify.items.SpotifyMultipleArtists;
 import dependencies.model.spotify.items.SpotifyMultipleAlbums;
+import dependencies.model.spotify.items.SpotifyMultipleTracks;
 
 import java.io.*;
 import java.net.http.HttpClient;
@@ -55,9 +57,9 @@ import java.nio.file.Path;
 
 import java.time.LocalDate;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.lang.Thread.sleep;
@@ -133,6 +135,21 @@ public class FlowTest {
                     SpotifyMultipleAlbums.class
             ));
 
+    static final BatchSearchMultipleEndpoint<
+            SpotifyMultipleTracks,
+            TrackSearchResultList.TrackSearchResult,
+            EndpointMultipleSearchResultBasic<TrackSearchResultList.TrackSearchResult>,
+            EndpointSearchResultBasicFactory<TrackSearchResultList.TrackSearchResult>
+            > MULTIPLE_TRACK_BATCH_SEARCHER =
+            new BatchSearchMultipleEndpoint<>(TOKEN_MANAGER,20,new MultipleEndpoint<>(
+                    JSON_PROCESSOR,
+                    ENDPOINT_REQUEST,
+                    50,
+                    new EndpointSearchResultBasicFactory<>(),
+                    new SpotifyMultipleTrackEndpointSearchResultFactoryFiller(),
+                    "https://api.spotify.com/v1/tracks",
+                    SpotifyMultipleTracks.class
+            ));
     // utility methods
 
     private static InputStreamReader getInputStreamReaderFromResources() {
@@ -180,7 +197,9 @@ public class FlowTest {
     }
 
     private static int readInt(){
-        return SCANNER.nextInt();
+        int i = SCANNER.nextInt();
+        SCANNER.nextLine();
+        return i;
     }
 
 
@@ -191,8 +210,6 @@ public class FlowTest {
         final Database.TableIntID<FileSong> filesTable = DATABASE.getFilesTable();
         final Database.UpdateTableIntID<Response> responsesTable = DATABASE.getResponsesTable();
         final Database.TableStringID<String> directoriesTable = DATABASE.getDirectoriesTable();
-        final Database.TableIntID<Integer> sourcesTable = DATABASE.getSourcesTable();
-
         Database.TableIntID<ItemImage> imagesTable = DATABASE.getImagesTable();
         Database.TableIntID<ImageRef.ItemImageRef> webImagesTable = DATABASE.getWebImagesTable();
 
@@ -214,7 +231,6 @@ public class FlowTest {
         List<Response> responses = responsesTable.all();
         List<String> directories = directoriesTable.all();
         System.out.println(directories);
-        List<Integer> sources = sourcesTable.all();
 
         List<ItemImage> localImages = imagesTable.all();
         List<ImageRef.ItemImageRef> webImages = webImagesTable.all();
@@ -237,19 +253,19 @@ public class FlowTest {
         List<FileSong.Individual> individuals = DATABASE.getIndividualsTable().all();
 
         ItemsRepository itemsRepository = new ItemsRepository(
-                artists.stream().collect(Collectors.toMap(SimpleItem::id, a -> a)),
-                albums.stream().collect(Collectors.toMap(SimpleItem::id, a -> a)),
-                tracks.stream().collect(Collectors.toMap(SimpleItem::id, a -> a)),
+                artists.stream().collect(toMap(SimpleItem::id, a -> a)),
+                albums.stream().collect(toMap(SimpleItem::id, a -> a)),
+                tracks.stream().collect(toMap(SimpleItem::id, a -> a)),
                 artistAlbumsIds,
                 albumTracksIds,
                 trackArtistsIds,
                 items.stream().collect(
-                        Collectors.groupingBy(SimpleItem.ItemUri::source,
-                                Collectors.groupingBy(
+                        groupingBy(SimpleItem.ItemUri::source,
+                                groupingBy(
                                         SimpleItem.ItemUri::type,
                                         toMap(SimpleItem.ItemUri::sourceId,i->i)
                                 ))));
-        FilesResponsesRepository filesResponsesRepository = FilesResponsesRepository.from(files,responses,new HashSet<>(sources), individuals);
+        FilesResponsesRepository filesResponsesRepository = FilesResponsesRepository.from(files,responses,new HashSet<>(responses.stream().filter(r->r.status()== Response.Status.another_source).map(SimpleItem::id).collect(toSet())), individuals);
 
         Map<Integer, List<Genre>> itemGenresIds = getItemGenresIds(itemGenres);
 
@@ -279,26 +295,26 @@ public class FlowTest {
 
 
     private static Map<Integer, List<Genre>> getItemGenresIds(List<Genre.ItemGenre> itemGenres) {
-        return itemGenres.stream().collect(Collectors.groupingBy(Genre.ItemGenre::item))
+        return itemGenres.stream().collect(groupingBy(Genre.ItemGenre::item))
                 .entrySet().stream()
                 .collect(toMap(Map.Entry::getKey,
                         e -> e.getValue().stream().map(Genre.ItemGenre::genre).toList()));
     }
 
     private static Map<Integer, List<Integer>> getTrackArtistsIds(List<Track.TrackArtist> trackArtists) {
-        return trackArtists.stream().collect(Collectors.groupingBy(Track.TrackArtist::trackId)).entrySet()
+        return trackArtists.stream().collect(groupingBy(Track.TrackArtist::trackId)).entrySet()
                 .stream().collect(toMap(Map.Entry::getKey, e -> e.getValue().stream().map(Track.TrackArtist::artistsId).toList()));
     }
 
     private static Map<Integer, List<Integer>> getAlbumTracksIds(List<Track> tracks) {
-        return tracks.stream().collect(Collectors.groupingBy(Track::albumId))
-                .entrySet().stream().collect(toMap(Map.Entry::getKey, e -> e.getValue().stream().map(SimpleItem::id).collect(Collectors.toList())));
+        return tracks.stream().collect(groupingBy(Track::albumId))
+                .entrySet().stream().collect(toMap(Map.Entry::getKey, e -> e.getValue().stream().map(SimpleItem::id).collect(toList())));
     }
 
     private static Map<Integer, List<Integer>> getArtistAlbumsIds(List<Album.AlbumArtist> albumArtists) {
         return albumArtists.stream()
-                .collect(Collectors.groupingBy(Album.AlbumArtist::artistsId)).entrySet().stream()
-                .collect(toMap(Map.Entry::getKey, e -> e.getValue().stream().map(Album.AlbumArtist::albumId).collect(Collectors.toList())));
+                .collect(groupingBy(Album.AlbumArtist::artistsId)).entrySet().stream()
+                .collect(toMap(Map.Entry::getKey, e -> e.getValue().stream().map(Album.AlbumArtist::albumId).collect(toList())));
     }
     /**
      *  add to database and repositories
@@ -700,12 +716,16 @@ public class FlowTest {
             }
         });
 
+        searchArtistsAlbumsAndAddTracks(results);
+    }
+
+    private static void searchArtistsAlbumsAndAddTracks(List<FileSongResponseTrackSearchResult> results) {
         // no doppelgangers
         Set<String> albumsId = new HashSet<>();
         Set<String> artistsId = new HashSet<>();
         Map<String, Artist> existingArtistBySourceId = new HashMap<>();
         Map<String, Album> existingAlbumsBySourceID = new HashMap<>();
-        
+
         extractArtistsAndAlbumsFromFileSongResponseTrackSearchResult(results, albumsId, artistsId, existingArtistBySourceId, existingAlbumsBySourceID);
 
         // first request artists, then albums, so the observers need access to resources in the opposite order
@@ -987,42 +1007,368 @@ public class FlowTest {
              can't spread the "fromAnotherSource" once start the artist/album search
              */
 
-        List<FileSong.FileSongResponseIndividualTrackId> individuals = new ArrayList<>();
+        Map<String, FileSong> individualsByTrackId = new HashMap<>();
+        Map<FileSong,Response> fromAnotherSource = new HashMap<>();
 
         map.forEach((fileSong,response)->{
-            Optional<String> trackId = askForATrackIdOrMarkFromOtherSource();
+            Optional<String> trackId = askForATrackIdOrMarkFromOtherSource(fileSong);
             trackId.ifPresentOrElse(
                     (stringId)-> {
-                        individuals.add(new FileSong.FileSongResponseIndividualTrackId(fileSong, response, stringId));
+                        System.out.println(stringId);
+                        Response updated = RESPONSE_STATUS_UPDATER.updateStatus(response, Response.Status.individual);
+                        individualsByTrackId.put(stringId, fileSong);
+                        DATABASE.getResponsesTable().update(updated);
                         REPOSITORY
                                 .getFilesResponsesRepository()
                                 .addIndividual(
+                                        fileSong,
+                                        updated,
                                         DATABASE
                                                 .getIndividualsTable()
                                                 .insert(new FileSong.Individual(fileSong.id(),stringId))
                                 );
                     },
-                    ()-> REPOSITORY
-                            .getFilesResponsesRepository()
-                            .addFromAnotherSource(
-                                    DATABASE
-                                            .getSourcesTable()
-                                            .insert(fileSong.id())
-                            ));
+                    ()-> {
+                        Response updated = RESPONSE_STATUS_UPDATER.updateStatus(response, Response.Status.another_source);
+                        DATABASE.getResponsesTable().update(updated);
+                        REPOSITORY
+                                .getFilesResponsesRepository()
+                                .addFromAnotherSource(fileSong,response);
+                        fromAnotherSource.put(fileSong,response);
+                    });
         });
 
-        System.out.println("processing individual tracks");
+        if (!individualsByTrackId.isEmpty()){
+            System.out.println("processing individual tracks");
+            List<FileSongResponseTrackSearchResult> results = new ArrayList<>();
+            MULTIPLE_TRACK_BATCH_SEARCHER
+                    .startNewBatchWith(
+                            List.copyOf(individualsByTrackId.keySet()),
+                            createResponseObserveForMultipleTrackSearch(map, results, individualsByTrackId));
+            searchArtistsAlbumsAndAddTracks(results);
+        }
 
+        if (!fromAnotherSource.isEmpty()){
+            System.out.println("creating new");
+            createFromAnotherSource(fromAnotherSource);
+        }
 
     }
 
 
-    private static Optional<String> askForATrackIdOrMarkFromOtherSource() {
-        System.out.println("enter a track ID from the API or mark as 'other' if it's not in the api data:");
+    private static ResponseObserver<EndpointMultipleSearchResultBasic<TrackSearchResultList.TrackSearchResult>>
+    createResponseObserveForMultipleTrackSearch(
+            Map<FileSong, Response> map,
+            List<FileSongResponseTrackSearchResult> results,
+            Map<String, FileSong> individualsByTrackId) {
+        return new ResponseObserver<>() {
+            @Override
+            public void notify(EndpointMultipleSearchResultBasic<TrackSearchResultList.TrackSearchResult> result) {
+                result.items().forEach((trackId,trackResult)->{
+
+                    FileSong fileSong = individualsByTrackId.get(trackId);
+                    Response response = map.get(fileSong);
+                    rewriteJson(response,trackResult);
+                    Response updated = RESPONSE_STATUS_UPDATER.updateStatus(response, Response.Status.checked_contained);
+                    DATABASE.getResponsesTable().update(updated);
+                    REPOSITORY.getFilesResponsesRepository().checkIndividual(fileSong,updated);
+                    results.add(
+                            new FileSongResponseTrackSearchResult(
+                                    fileSong,
+                                    updated,
+                                    trackResult
+                            ));
+                });
+            }
+
+            @Override
+            public void finish(CountDownLatch finisher) {
+                finisher.countDown();
+            }
+        };
+    }
+
+
+    private static Optional<String> askForATrackIdOrMarkFromOtherSource(FileSong fileSong) {
+        System.out.println("for "+fileSong.nameWithExtension()+" enter a track ID from the API or mark as 'other' if it's not in the api data:");
+        try {
+            sleep(1000);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
         String s = readText();
         if (s.equals("other")) return Optional.empty();
         return Optional.of(s);
     }
 
+
+    private static void createFromAnotherSource(Map<FileSong, Response> fileSongResponseMap) {
+        fileSongResponseMap.forEach((file,response)->{
+            System.out.println("create new item, from source:");
+            for (Database.ItemSource value : Database.ItemSource.values()) {
+                if (value!= Database.ItemSource.spotify) System.out.println(value);
+            }
+            System.out.println("select");
+            String s = readText();
+            Database.ItemSource itemSource = Database.ItemSource.valueOf(s);
+            Map<String, Artist> artistsFrom = REPOSITORY.getItemsRepository().getArtistsFrom(itemSource);
+
+            List<Artist> artists = new ArrayList<>();
+            searchExistingArtistsFromAnotherSource(artistsFrom, artists);
+            Map<Artist, HashSet<Album>> collect = artists.stream().collect(toMap(a -> a, a -> new HashSet<>(REPOSITORY.getItemsRepository().getArtistAlbums(a))));
+            System.out.println("create artists? yes/no");
+            String createArtist = readText();
+            if (createArtist.equals("yes")) createArtist(itemSource, artists);
+            Optional<Album> album = searchExistingAlbumFromAnotherSource(collect.values().stream().flatMap(Set::stream).collect(toSet()));
+            Album actual = album.orElseGet(() -> createAlbum(itemSource, artists));
+            createTrack(file,response,itemSource,artists,actual);
+        });
+    }
+
+    private static void createArtist(Database.ItemSource itemSource, List<Artist> artists) {
+        boolean another = true;
+        List<SimpleItem.ItemUri> uris = new ArrayList<>();
+        List<Artist> newArtists = new ArrayList<>();
+        Set<Genre> newGenres = new HashSet<>();
+        List<List<Genre>> artistGenres = new ArrayList<>();
+        List<ImageRef> images = new ArrayList<>();
+        while (another){
+            System.out.println("enter an artist id");
+            String id = readText();
+            uris.add(new SimpleItem.ItemUri(0,itemSource, SimpleItem.ItemType.artist,id));
+            System.out.println("enter a name");
+            String name = readText();
+            System.out.println("enter genres coma separated");
+            List<Genre> genres = Arrays.stream(readText().split(",")).map(Genre::new).toList();
+            System.out.println("enter an image url");
+            String imageSource = readText();
+            System.out.println("enter width");
+            int width = readInt();
+            System.out.println("enter height");
+            int height = readInt();
+            images.add(new ImageRef(imageSource,height,width));
+            newGenres.addAll(genres);
+            artistGenres.add(genres);
+            newArtists.add(new Artist() {
+                @Override
+                public Integer id() {
+                    return 0;
+                }
+
+                @Override
+                public String name() {
+                    return name;
+                }
+
+                @Override
+                public ItemType type() {
+                    return ItemType.artist;
+                }
+            });
+            System.out.println("another? yes/no");
+            if (!readText().equals("yes")) another = false;
+        }
+
+        newGenres.stream()
+                .filter(g->!REPOSITORY.getGenresRepository().containsGenre(g))
+                .forEach(g->addGenre(g.name()));
+        List<SimpleItem.ItemUri> withId = addItems(uris);
+        List<Artist> updated = new ArrayList<>();
+        List<Genre.ItemGenre> itemGenres= new ArrayList<>();
+        List<ImageRef.ItemImageRef> updatedImages = new ArrayList<>();
+        for (int i = 0; i < withId.size(); i++) {
+            Integer id = withId.get(i).id();
+            updated.add(ITEM_ID_UPDATER.update(id,newArtists.get(i)));
+            artistGenres.get(i).stream().map(g-> new Genre.ItemGenre(id,g)).forEach(itemGenres::add);
+            ImageRef imageRef = images.get(i);
+            updatedImages.add(new ImageRef.ItemImageRef(id, imageRef.url(), imageRef.height(), imageRef.width()));
+        }
+        addArtists(updated);
+        addArtistsGenres(itemGenres);
+        addItemWebImages(updatedImages);
+        artists.addAll(updated);
+    }
+
+    private static Album createAlbum(Database.ItemSource itemSource, List<Artist> artists) {
+        List<SimpleItem.ItemUri> uris = new ArrayList<>();
+        List<Album> newAlbums = new ArrayList<>();
+        List<ImageRef> refs = new ArrayList<>();
+
+            System.out.println("enter an album id");
+            String id = readText();
+            uris.add(new SimpleItem.ItemUri(0,itemSource, SimpleItem.ItemType.album,id));
+            System.out.println("enter a name");
+            String name = readText();
+            System.out.println("enter label");
+            String label = readText();
+            System.out.println("enter an album type");
+            System.out.println(Arrays.stream(Album.AlbumType.values()).map(Objects::toString).toList());
+            Album.AlbumType albumType = Album.AlbumType.valueOf(readText());
+            System.out.println("enter track number");
+            int tracks = readInt();
+            System.out.println("enter release precision year/month/day");
+            Album.ReleasePrecision releasePrecision = Album.ReleasePrecision.valueOf(readText());
+            LocalDateTime release = null;
+            switch (releasePrecision) {
+                case year -> {
+                    System.out.println("enter release yyyy");
+                    release = Album.ReleasePrecision.toLocalDateTime(Album.ReleasePrecision.year,readText());
+                }
+                case month -> {
+                    System.out.println("enter release yyyy-MM");
+                    release = Album.ReleasePrecision.toLocalDateTime(Album.ReleasePrecision.month,readText());
+                }
+                case day -> {
+                    System.out.println("enter release yyyy-MM-dd");
+                    release = Album.ReleasePrecision.toLocalDateTime(Album.ReleasePrecision.day,readText());
+                }
+            }
+            System.out.println("enter an image url");
+            String imageSource = readText();
+            System.out.println("enter width");
+            int width = readInt();
+            System.out.println("enter height");
+            int height = readInt();
+            refs.add(new ImageRef(imageSource,height,width));
+            LocalDateTime finalRelease = release;
+            newAlbums.add(new Album() {
+                @Override
+                public AlbumType albumType() {
+                    return albumType;
+                }
+
+                @Override
+                public int tracks() {
+                    return tracks;
+                }
+
+                @Override
+                public LocalDateTime release() {
+                    return finalRelease;
+                }
+
+                @Override
+                public ReleasePrecision precision() {
+                    return releasePrecision;
+                }
+
+                @Override
+                public String label() {
+                    return label;
+                }
+
+                @Override
+                public Integer id() {
+                    return 0;
+                }
+
+                @Override
+                public String name() {
+                    return name;
+                }
+
+                @Override
+                public ItemType type() {
+                    return ItemType.album;
+                }
+            });
+
+        SimpleItem.ItemUri first = addItems(uris).getFirst();
+        Album update = ITEM_ID_UPDATER.update(first.id(), newAlbums.getFirst());
+        ImageRef ref = refs.getFirst();
+        ImageRef.ItemImageRef itemImageRef = new ImageRef.ItemImageRef(first.id(), ref.url(), ref.height(), ref.width());
+        System.out.println("select artists by id coma separated");
+        System.out.println(artists.stream().map(a->a.name()+":"+a.id()).toList());
+        List<Album.AlbumArtist> albumArtists = Arrays.stream(readText().split(",")).map(Integer::parseInt).map(i -> new Album.AlbumArtist(update.id(), i)).toList();
+
+
+        addAlbum(List.of(update));
+        addAlbumArtists(albumArtists);
+        addItemWebImages(List.of(itemImageRef));
+        return update;
+    }
+
+    private static void createTrack(FileSong file, Response response, Database.ItemSource itemSource, List<Artist> artists, Album album) {
+        System.out.println("enter track id");
+        String id = readText();
+        System.out.println("enter track name");
+        String name = readText();
+        System.out.println("enter track number in the album");
+        int number = readInt();
+
+        Integer trackID = addItems(List.of(new SimpleItem.ItemUri(0, itemSource, SimpleItem.ItemType.track, id))).getFirst().id();
+        Track track = new Track() {
+            @Override
+            public Integer albumId() {
+                return album.id();
+            }
+
+            @Override
+            public int number() {
+                return number;
+            }
+
+            @Override
+            public String directory() {
+                return file.directory();
+            }
+
+            @Override
+            public LocalDateTime creation() {
+                return file.creation();
+            }
+
+            @Override
+            public String nameWithExtension() {
+                return file.nameWithExtension();
+            }
+
+            @Override
+            public Integer id() {
+                return trackID;
+            }
+
+            @Override
+            public String name() {
+                return name;
+            }
+
+            @Override
+            public ItemType type() {
+                return ItemType.track;
+            }
+        };
+        Response updated = RESPONSE_STATUS_UPDATER.updateStatus(response, Response.Status.added);
+        DATABASE.getResponsesTable().update(updated);
+        REPOSITORY.getFilesResponsesRepository().checkFromAnotherSource(file,updated);
+        addTracks(
+                List.of(track),
+                artists.stream().flatMap(a->REPOSITORY.getGenresRepository().artistGenres(a).stream().map(g->new Genre.ItemGenre(trackID,g))).toList(),
+                artists.stream().map(a->new Track.TrackArtist(track.id(),a.id())).toList());
+    }
+
+    private static Optional<Album> searchExistingAlbumFromAnotherSource(Set<Album> collect) {
+        System.out.println("search an already existing album by name:");
+        System.out.println(collect.stream().map(SimpleItem::name).toList());
+        String artistIdSearch = readText();
+        return collect.stream().filter(a->a.name().equals(artistIdSearch)).findFirst();
+    }
+
+    private static void searchExistingArtistsFromAnotherSource(Map<String, Artist> artistsFrom, List<Artist> artists) {
+        boolean searchingArtist = true;
+        while (searchingArtist) {
+            System.out.println("search an already existing artist by source id:");
+            System.out.println(artistsFrom.keySet());
+            String artistIdSearch = readText();
+            if (artistsFrom.containsKey(artistIdSearch)) {
+                artists.add(artistsFrom.get(artistIdSearch));
+            } else {
+                System.out.println(artistIdSearch+" not in the database");
+            }
+            System.out.println("keep searching? yes/no");
+            String keep = readText();
+            if (!keep.equals("yes")) searchingArtist = false;
+        }
+    }
 }
 

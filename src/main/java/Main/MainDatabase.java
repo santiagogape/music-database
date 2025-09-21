@@ -23,7 +23,6 @@ public class MainDatabase {
     private final Database.TableIntID<FileSong> filesTable;
     private final Database.TableIntID<ItemImage> imagesTable;
     private final Database.UpdateTableIntID<Response> responsesTable;
-    private final Database.TableIntID<Integer> sourcesTable;
     private final Database.TableStringID<String> directoriesTable;
     private final Database.TableIntID<SimpleItem.ItemUri> objectsTable;
     private final Database.TableIntID<Artist> artistsTable;
@@ -53,7 +52,6 @@ public class MainDatabase {
         imagesTable = new ImagesTable(connection);
         webImagesTable = new WebImagesTable(connection);
         responsesTable = new ResponsesTable(connection);
-        sourcesTable = new SourcesTable(connection);
         directoriesTable = new DirectoriesTable(connection);
         objectsTable = new ObjectsTable(connection);
         artistsTable = new ArtistsTable(connection);
@@ -96,10 +94,6 @@ public class MainDatabase {
 
     public Database.UpdateTableIntID<Response> getResponsesTable() {
         return responsesTable;
-    }
-
-    public Database.TableIntID<Integer> getSourcesTable() {
-        return sourcesTable;
     }
 
     public Database.TableStringID<String> getDirectoriesTable() {

@@ -1,37 +1,48 @@
 package main;
 
 import app.model.items.SimpleItem;
-import app.model.utilities.database.Database;
+import org.jaudiotagger.audio.AudioFile;
+import org.jaudiotagger.audio.AudioFileIO;
+import org.jaudiotagger.audio.exceptions.CannotReadException;
+import org.jaudiotagger.audio.exceptions.CannotWriteException;
+import org.jaudiotagger.audio.exceptions.InvalidAudioFrameException;
+import org.jaudiotagger.audio.exceptions.ReadOnlyFileException;
+import org.jaudiotagger.tag.FieldDataInvalidException;
+import org.jaudiotagger.tag.FieldKey;
+import org.jaudiotagger.tag.Tag;
+import org.jaudiotagger.tag.TagException;
 
-import java.util.ArrayList;
+import java.io.File;
+import java.io.IOException;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 public class littleTest {
-    private static List<SimpleItem.ItemUri> results;
 
+    //tod -> this works -> refactor to flowTest as a nother flow (added -> tagged), keep filename -> nameWithExtension, change title -> name
     public static void main(String[] args) {
-        results = new ArrayList<>();
-        for (Database.ItemSource source : Database.ItemSource.values()) {
-            for (SimpleItem.ItemType type: SimpleItem.ItemType.values()) {
-                IntStream.range(0,10).mapToObj(i->new SimpleItem.ItemUri(i,source,type,String.valueOf(i))).forEach(results::add);
-            }
+        File file = new File("C:\\Users\\santi\\Desktop\\musica\\test\\Ado - Crime and Punishment, sung.mp3");
+        AudioFile audioFile;
+        try {
+            audioFile = AudioFileIO.read(file);
+        } catch (CannotReadException | IOException | TagException | ReadOnlyFileException | InvalidAudioFrameException e) {
+            throw new RuntimeException(e);
         }
-        System.out.println(results.stream().collect(
-                Collectors.groupingBy(SimpleItem.ItemUri::source,
-                        Collectors.groupingBy(
-                                SimpleItem.ItemUri::type
-                        ))));
+        Tag tag = audioFile.getTagOrCreateAndSetDefault();
 
-        Map<Database.ItemSource, Map<SimpleItem.ItemType, List<SimpleItem.ItemUri>>> collect = results.stream().collect(
-                Collectors.groupingBy(SimpleItem.ItemUri::source,
-                        Collectors.groupingBy(
-                                SimpleItem.ItemUri::type
-                        )));
+        try {
+            tag.setField(FieldKey.TITLE, "シャルル");
+            tag.setField(FieldKey.ALBUM, "シャルル");
+            tag.setField(FieldKey.ARTISTS, "Ado");
+            tag.setField(FieldKey.YEAR, "2025");
+            tag.setField(FieldKey.TRACK, "1");
+        } catch (FieldDataInvalidException e) {
+            throw new RuntimeException(e);
+        }
 
-        collect.get(Database.ItemSource.spotify).get(SimpleItem.ItemType.artist).add(new SimpleItem.ItemUri(10, Database.ItemSource.spotify, SimpleItem.ItemType.artist,"10"));
-        System.out.println(collect.get(Database.ItemSource.spotify).get(SimpleItem.ItemType.artist));
+        try {
+            audioFile.commit();
+        } catch (CannotWriteException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

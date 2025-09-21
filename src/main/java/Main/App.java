@@ -9,7 +9,7 @@ import app.model.utilities.TempFolder;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import dependencies.control.GsonJsonWriter;
-import dependencies.control.JAudioTaggerMP3MetadataReader;
+import dependencies.control.metadata.JAudioTaggerMP3MetadataReader;
 import dependencies.model.SQLite.MusicSQLiteDatabase;
 import dependencies.control.spotify.SpotifyTokenManager;
 import dependencies.model.spotify.auth.ClientCredentials;

@@ -1,4 +1,4 @@
-package dependencies.control;
+package dependencies.control.metadata;
 
 import java.io.IOException;
 import java.nio.file.Files;

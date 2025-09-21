@@ -70,18 +70,12 @@ public interface Database {
                     FOREIGN KEY (ID) REFERENCES FILES(ID) ON DELETE CASCADE
                 );
                 """),
-        SOURCES("""
-                CREATE TABLE IF NOT EXISTS SOURCES (
-                    ID INTEGER PRIMARY KEY,
-                    FOREIGN KEY (ID) REFERENCES FILES(ID) ON DELETE CASCADE
-                );
-                """),
         INDIVIDUALS("""
                 CREATE TABLE IF NOT EXISTS INDIVIDUALS (
                     ID INTEGER PRIMARY KEY,
                     TRACK_ID TEXT UNIQUE NOT NULL,
-                    FOREIGN KEY (ID) REFERENCES OBJECTS(ID) ON DELETE CASCADE\s
-                )
+                    FOREIGN KEY (ID) REFERENCES FILES(ID) ON DELETE CASCADE
+                );
                 """),
         OBJECTS("""
                 CREATE TABLE IF NOT EXISTS OBJECTS (

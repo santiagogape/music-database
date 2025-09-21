@@ -204,11 +204,13 @@ public class FilesResponsesRepository {
         responses.get(fileSong.directory()).get(response.status()).put(response.id(),response);
     }
 
-    public void addFromAnotherSource(Integer id){
-        fromAnotherSource.add(id);
+    public void addFromAnotherSource(FileSong fileSong, Response response){
+        fromAnotherSource.add(response.id());
+        updateResponse(fileSong, Response.Status.checked_not_contained,response);
     }
 
-    public void addIndividual(FileSong.Individual individual){
+    public void addIndividual(FileSong filesong, Response response, FileSong.Individual individual){
+        updateResponse(filesong, Response.Status.checked_not_contained,response);
         individuals.put(individual.id(), individual.trackId());
     }
 
@@ -221,4 +223,13 @@ public class FilesResponsesRepository {
     }
 
 
+    public void checkIndividual(FileSong fileSong, Response updated) {
+        individuals.remove(fileSong.id());
+        updateResponse(fileSong, Response.Status.individual,updated);
+    }
+
+    public void checkFromAnotherSource(FileSong file, Response response) {
+        fromAnotherSource.remove(file.id());
+        updateResponse(file, Response.Status.another_source,response);
+    }
 }
